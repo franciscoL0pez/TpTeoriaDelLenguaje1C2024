@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+var clients = make(map[net.Conn]bool)
+
 func authenticate(username, password string) bool {
 	file, err := os.Open("users.csv")
 	if err != nil {
@@ -56,10 +58,10 @@ func register(username, password string) error {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	fmt.Println("Nueva conexion establecida:", conn.RemoteAddr())
+	fmt.Println("Nueva conexion:", conn.RemoteAddr())
 
 	conn.Write([]byte("Bienvenido al servidor.\n"))
-	conn.Write([]byte("1. Iniciar sesión\n"))
+	conn.Write([]byte("1. Iniciar sesion\n"))
 	conn.Write([]byte("2. Registrarse\n"))
 	conn.Write([]byte("Ingrese opcion:"))
 
@@ -103,8 +105,28 @@ func handleConnection(conn net.Conn) {
 		fmt.Println("Usuario registrado:", username)
 		conn.Write([]byte("Usuario registrado con exito.\n"))
 	default:
-		conn.Write([]byte("Opción no valida. Cierre de la conexion.\n"))
+		conn.Write([]byte("Opción invalida. Cierre de la conexion.\n"))
 		return
+	}
+
+	for {
+		message, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error al leer mensaje del cliente:", err)
+			delete(clients, conn)
+			return
+		}
+		message = strings.TrimSpace(message)
+		fmt.Println("Mensaje recibido:", message)
+
+		for client := range clients {
+			_, err := client.Write([]byte(message + "\n"))
+			if err != nil {
+				fmt.Println("Error al enviar mensaje al cliente:", err)
+				client.Close()
+				delete(clients, client)
+			}
+		}
 	}
 }
 
@@ -124,6 +146,7 @@ func main() {
 			fmt.Println("Error al aceptar la conexion:", err)
 			continue
 		}
+		clients[conn] = true
 		go handleConnection(conn)
 	}
 }
