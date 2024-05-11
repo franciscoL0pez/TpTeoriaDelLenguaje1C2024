@@ -16,7 +16,7 @@ var (
 	conn           net.Conn
 	myApp          fyne.App
 	loginWindow    fyne.Window
-	messageDisplay *widget.Label // Definir messageDisplay como variable global
+	messageDisplay *widget.Label
 )
 
 func main() {
