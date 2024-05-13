@@ -16,57 +16,9 @@ var (
 	conn           net.Conn
 	myApp          fyne.App
 	loginWindow    fyne.Window
+	users          fyne.Window
 	messageDisplay *widget.Label
 )
-
-func main() {
-	myApp = app.New()
-
-	welcomeWindow := myApp.NewWindow("Preguntados")
-	welcomeWindow.SetContent(container.NewVBox(
-		widget.NewLabel("Bienvenido a Preguntados"),
-		widget.NewButton("Iniciar sesion", func() {
-			showLoginWindow(myApp)
-			welcomeWindow.Hide()
-		}),
-	))
-	welcomeWindow.Resize(fyne.NewSize(400, 400))
-	welcomeWindow.Show()
-
-	myApp.Run()
-}
-
-func showLoginWindow(app fyne.App) {
-	loginWindow = app.NewWindow("Login")
-
-	optionLabel := widget.NewLabel("Elige una opcion:")
-	usernameEntry := widget.NewEntry()
-	usernameEntry.SetPlaceHolder("Username")
-	passwordEntry := widget.NewPasswordEntry()
-	passwordEntry.SetPlaceHolder("Password")
-
-	loginButton := widget.NewButton("Login", func() {
-		sendCredentials("1", usernameEntry.Text, passwordEntry.Text)
-	})
-
-	registerButton := widget.NewButton("Register", func() {
-		sendCredentials("2", usernameEntry.Text, passwordEntry.Text)
-		usernameEntry.SetText("")
-		passwordEntry.SetText("")
-	})
-
-	loginWindow.SetContent(container.NewVBox(
-		optionLabel,
-		usernameEntry,
-		passwordEntry,
-		container.NewHBox(
-			loginButton,
-			registerButton,
-		),
-	))
-	loginWindow.Resize(fyne.NewSize(400, 400))
-	loginWindow.Show()
-}
 
 func sendCredentials(option, username, password string) {
 	var err error
@@ -104,6 +56,38 @@ func sendCredentials(option, username, password string) {
 		go receiveChatMessage()
 		loginWindow.Hide()
 	}
+}
+
+func showLoginWindow(app fyne.App) {
+	loginWindow = app.NewWindow("Login")
+
+	optionLabel := widget.NewLabel("Elige una opcion:")
+	usernameEntry := widget.NewEntry()
+	usernameEntry.SetPlaceHolder("Username")
+	passwordEntry := widget.NewPasswordEntry()
+	passwordEntry.SetPlaceHolder("Password")
+
+	loginButton := widget.NewButton("Login", func() {
+		sendCredentials("1", usernameEntry.Text, passwordEntry.Text)
+	})
+
+	registerButton := widget.NewButton("Register", func() {
+		sendCredentials("2", usernameEntry.Text, passwordEntry.Text)
+		usernameEntry.SetText("")
+		passwordEntry.SetText("")
+	})
+
+	loginWindow.SetContent(container.NewVBox(
+		optionLabel,
+		usernameEntry,
+		passwordEntry,
+		container.NewHBox(
+			loginButton,
+			registerButton,
+		),
+	))
+	loginWindow.Resize(fyne.NewSize(400, 400))
+	loginWindow.Show()
 }
 
 func openChatWindow() {
@@ -144,4 +128,21 @@ func sendChatMessage(message string) {
 
 func updateChatMessage(message string) {
 	messageDisplay.SetText(messageDisplay.Text + message)
+}
+
+func main() {
+	myApp = app.New()
+
+	welcomeWindow := myApp.NewWindow("Preguntados")
+	welcomeWindow.SetContent(container.NewVBox(
+		widget.NewLabel("Bienvenido a Preguntados"),
+		widget.NewButton("Iniciar sesion", func() {
+			showLoginWindow(myApp)
+			welcomeWindow.Hide()
+		}),
+	))
+	welcomeWindow.Resize(fyne.NewSize(400, 400))
+	welcomeWindow.Show()
+
+	myApp.Run()
 }
