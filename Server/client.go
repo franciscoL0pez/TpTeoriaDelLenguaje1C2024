@@ -18,6 +18,9 @@ var (
 	loginWindow    fyne.Window
 	users          fyne.Window
 	messageDisplay *widget.Label
+	questionLabel  *widget.Label
+	answerEntry    *widget.Entry
+	optionsButtons []*widget.Button
 )
 
 func sendCredentials(option, username, password string) {
@@ -52,10 +55,99 @@ func sendCredentials(option, username, password string) {
 	fmt.Print(response)
 
 	if strings.Contains(response, "Bienvenido") {
-		openChatWindow()
-		go receiveChatMessage()
+		go receiveMessages()
+		openChooseWindow()
 		loginWindow.Hide()
 	}
+}
+
+func receiveMessages() {
+	reader := bufio.NewReader(conn)
+	for {
+		message, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error al leer mensaje del servidor:", err)
+			return
+		}
+		handleServerMessage(message)
+	}
+}
+
+func updateChatMessage(message string) {
+	messageDisplay.SetText(messageDisplay.Text + message)
+}
+
+func updateQuestion(question string) {
+	questionLabel.SetText(strings.TrimPrefix(question, "QUESTION:"))
+}
+
+func sendAnswerToServer(answer string) {
+	conn.Write([]byte("ANSWER " + answer + "\n"))
+}
+
+func updateAnswerMessage(message string) {
+	// Actualizar el mensaje de respuesta en la interfaz
+	if messageDisplay != nil {
+		messageDisplay.SetText(message)
+	}
+}
+
+func handleServerMessage(message string) {
+	fmt.Println("Mensaje leído para el Handle: ", message)
+	if strings.HasPrefix(message, "QUESTION:") {
+		options := strings.Split(strings.TrimPrefix(message, "QUESTION:"), "\n")
+		updateQuestion(options[0])
+		updateOptions(options[1:])
+	} else if strings.TrimSpace(message) == "CORRECT" {
+		updateAnswerMessage("Respuesta Correcta")
+	} else if strings.TrimSpace(message) == "INCORRECT" {
+		updateAnswerMessage("Respuesta Incorrecta")
+	} else {
+		updateChatMessage(message)
+	}
+}
+
+func updateOptions(options []string) {
+	for _, button := range optionsButtons {
+		button.Hide()
+	}
+
+	optionsButtons = make([]*widget.Button, len(options))
+	for i, option := range options {
+		optionsButtons[i] = widget.NewButton(option, func(option string) func() {
+			return func() {
+				sendAnswerToServer(option)
+			}
+		}(option))
+		optionsButtons[i].Show()
+	}
+}
+
+func openGameWindow() {
+	gameWindow := myApp.NewWindow("Game")
+	gameWindow.Resize(fyne.NewSize(400, 400))
+
+	questionLabel = widget.NewLabel("")
+	messageDisplay = widget.NewLabel("") // Inicializar messageDisplay aquí
+
+	answerEntry = widget.NewEntry()
+	checkButton := widget.NewButton("Check", func() {
+		sendAnswerToServer(answerEntry.Text)
+		answerEntry.SetText("")
+	})
+
+	gameWindow.SetContent(container.NewVBox(
+		questionLabel,
+		messageDisplay, // Agregar messageDisplay al contenido
+		container.NewGridWithColumns(2,
+			answerEntry,
+			checkButton,
+		),
+	))
+
+	conn.Write([]byte("GET_QUESTION\n"))
+
+	gameWindow.Show()
 }
 
 func showLoginWindow(app fyne.App) {
@@ -90,6 +182,22 @@ func showLoginWindow(app fyne.App) {
 	loginWindow.Show()
 }
 
+func openChooseWindow() {
+	chooseWindow := myApp.NewWindow("Elegir")
+	chooseWindow.SetContent(container.NewVBox(
+		widget.NewButton("Chat", func() {
+			openChatWindow()
+			chooseWindow.Hide()
+		}),
+		widget.NewButton("Jugar", func() {
+			openGameWindow()
+			chooseWindow.Hide()
+		}),
+	))
+	chooseWindow.Resize(fyne.NewSize(400, 400))
+	chooseWindow.Show()
+}
+
 func openChatWindow() {
 	chatWindow := myApp.NewWindow("Chat")
 	messageEntry := widget.NewEntry()
@@ -110,24 +218,8 @@ func openChatWindow() {
 	chatWindow.Show()
 }
 
-func receiveChatMessage() {
-	reader := bufio.NewReader(conn)
-	for {
-		message, err := reader.ReadString('\n')
-		if err != nil {
-			fmt.Println("Error al leer mensaje:", err)
-			return
-		}
-		updateChatMessage(message)
-	}
-}
-
 func sendChatMessage(message string) {
 	conn.Write([]byte(message + "\n"))
-}
-
-func updateChatMessage(message string) {
-	messageDisplay.SetText(messageDisplay.Text + message)
 }
 
 func main() {

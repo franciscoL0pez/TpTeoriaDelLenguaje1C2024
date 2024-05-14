@@ -4,12 +4,24 @@ import (
 	"bufio"
 	"encoding/csv"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
-var clients = make(map[net.Conn]bool)
+var (
+	clients         = make(map[net.Conn]bool)
+	questionList    []questionAnswer
+	currentQuestion string
+	currentAnswer   string
+)
+
+type questionAnswer struct {
+	question string
+	answer   string
+}
 
 func authenticate(username, password string) bool {
 	file, err := os.Open("users.csv")
@@ -119,18 +131,89 @@ func handleConnection(conn net.Conn) {
 		message = strings.TrimSpace(message)
 		fmt.Println("Mensaje recibido:", message)
 
-		for client := range clients {
-			_, err := client.Write([]byte(message + "\n"))
-			if err != nil {
-				fmt.Println("Error al enviar mensaje al cliente:", err)
-				client.Close()
-				delete(clients, client)
+		// Dividir el mensaje en palabras
+		parts := strings.Fields(message)
+		if len(parts) > 0 {
+			switch parts[0] {
+			case "GET_QUESTION":
+				sendQuestionToClient(conn)
+			case "ANSWER":
+				// Verificar si hay al menos dos partes (ANSWER y el número de respuesta)
+				if len(parts) >= 2 {
+					answer := parts[1] // Obtener el número de respuesta
+					fmt.Println("Respuesta recibida:", answer)
+					if checkAnswer(answer) {
+						fmt.Println("Respuesta Correcta")
+						conn.Write([]byte("CORRECT\n"))
+					} else {
+						fmt.Println("Respuesta Incorrecta")
+						conn.Write([]byte("INCORRECT\n"))
+					}
+					sendQuestionToClient(conn)
+				} else {
+					fmt.Println("Mensaje de respuesta incorrecto:", message)
+				}
+			default:
+				for client := range clients {
+					_, err := client.Write([]byte(message + "\n"))
+					if err != nil {
+						fmt.Println("Error al enviar mensaje al cliente:", err)
+						client.Close()
+						delete(clients, client)
+					}
+				}
 			}
 		}
 	}
+
+}
+
+func sendQuestionToClient(conn net.Conn) {
+	q := randomQuestion()
+	currentQuestion = q.question
+	currentAnswer = q.answer
+	conn.Write([]byte("QUESTION:" + q.question + "\n"))
+}
+
+func loadQuestions() {
+	file, err := os.Open("questions.csv")
+	if err != nil {
+		fmt.Println("Error al abrir el archivo:", err)
+		return
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		fmt.Println("Error al leer el archivo CSV:", err)
+		return
+	}
+
+	for _, record := range records {
+		q := questionAnswer{
+			question: record[0],
+			answer:   record[1],
+		}
+		questionList = append(questionList, q)
+	}
+}
+
+func randomQuestion() questionAnswer {
+	rand.Seed(time.Now().UnixNano())
+	indice := rand.Intn(len(questionList))
+	return questionList[indice]
+}
+
+func checkAnswer(answer string) bool {
+	fmt.Println("Answer: ", answer)
+	fmt.Println("Current answer: ", currentAnswer)
+	return answer == currentAnswer // Simplificado para este ejemplo, deberías verificar con la respuesta correcta
 }
 
 func main() {
+	loadQuestions()
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		fmt.Println("Error al iniciar el servidor:", err)
