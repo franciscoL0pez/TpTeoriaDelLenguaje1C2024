@@ -1,4 +1,4 @@
-package main
+package Backend
 
 import (
 	"bufio"
@@ -52,6 +52,17 @@ func newQuestionAnswer() (string, string) {
 
 	return question, answer
 
+}
+
+func selecRandomCategory() string {
+	rand.Seed(time.Now().UnixNano())
+	randomNumber := rand.Intn(4)
+
+	categoryList := []string{"questionsSports.csv", "questionsScience.csv", "questionsEntertainment.csv", "questionsHistory.csv"}
+
+	category := categoryList[randomNumber]
+
+	return category
 }
 
 func createQuestionList(nameArchvie string) ([]questionAnswer, error) {
@@ -118,7 +129,9 @@ func GiveRandomQuestionToPlayer(questionList []questionAnswer) bool {
 }
 
 func main() {
-	questionlist, err := createQuestionList("Questions.csv")
+	category := selecRandomCategory()
+
+	questionlist, err := createQuestionList(category)
 
 	if err != nil {
 		fmt.Println("Error reading the file:", err)
