@@ -1,4 +1,4 @@
-package Backend
+package main
 
 import (
 	"bufio"
