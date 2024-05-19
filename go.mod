@@ -1,4 +1,4 @@
-module client.go
+module TpTeoriaDelLenguaje1C2024
 
 go 1.18
 
