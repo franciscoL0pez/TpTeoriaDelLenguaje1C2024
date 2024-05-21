@@ -1,4 +1,4 @@
-package main
+package Backend
 
 import (
 	"bufio"
@@ -15,7 +15,7 @@ type questionAnswer struct {
 	answer   string
 }
 
-func writeCSVQuestionsAndAnswer(question, answer string) error {
+func WriteCSVQuestionsAndAnswer(question, answer string) error {
 	// Abre el archivo CSV en modo append
 	file, err := os.OpenFile("questions.csv", os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
@@ -35,7 +35,7 @@ func writeCSVQuestionsAndAnswer(question, answer string) error {
 	return nil
 }
 
-func newQuestionAnswer() (string, string) {
+func NewQuestionAnswer() (string, string) {
 	var question, answer string
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -54,7 +54,7 @@ func newQuestionAnswer() (string, string) {
 
 }
 
-func selecRandomCategory() string {
+func SelecRandomCategory() string {
 	rand.Seed(time.Now().UnixNano())
 	randomNumber := rand.Intn(4)
 
@@ -65,7 +65,7 @@ func selecRandomCategory() string {
 	return category
 }
 
-func createQuestionList(nameArchvie string) ([]questionAnswer, error) {
+func CreateQuestionList(nameArchvie string) ([]questionAnswer, error) {
 	file, err := os.Open(nameArchvie)
 
 	if err != nil {
@@ -94,7 +94,7 @@ func createQuestionList(nameArchvie string) ([]questionAnswer, error) {
 	return questionList, nil
 }
 
-func randomQuestion(questionList []questionAnswer) questionAnswer {
+func RandomQuestion(questionList []questionAnswer) questionAnswer {
 	rand.Seed(time.Now().UnixNano())
 
 	indice := rand.Intn(len(questionList))
@@ -126,18 +126,4 @@ func GiveRandomQuestionToPlayer(questionList []questionAnswer) bool {
 		fmt.Print("Respuesta incorrecta!")
 		return false
 	}
-}
-
-func main() {
-	category := selecRandomCategory()
-
-	questionlist, err := createQuestionList(category)
-
-	if err != nil {
-		fmt.Println("Error reading the file:", err)
-		return
-	}
-
-	GiveRandomQuestionToPlayer(questionlist)
-
 }

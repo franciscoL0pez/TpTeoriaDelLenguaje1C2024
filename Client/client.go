@@ -1,5 +1,4 @@
-// ProjectRoot/Client/client.go
-package main
+package Client
 
 import (
 	"bufio"
@@ -8,6 +7,7 @@ import (
 	"strings"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
@@ -219,4 +219,24 @@ func (c *Client) openChatWindow() {
 
 func (c *Client) sendChatMessage(message string) {
 	c.conn.Write([]byte(message + "\n"))
+}
+
+func InitUser() {
+	myApp := app.New()
+
+	client := &Client{myApp: myApp}
+
+	welcomeWindow := myApp.NewWindow("Preguntados")
+	welcomeWindow.SetContent(container.NewVBox(
+		widget.NewLabel("Bienvenido a Preguntados"),
+		widget.NewButton("Iniciar sesion", func() {
+			client.showLoginWindow()
+			welcomeWindow.Hide()
+		}),
+	))
+	welcomeWindow.Resize(fyne.NewSize(400, 400))
+	welcomeWindow.Show()
+
+	myApp.Run()
+
 }
