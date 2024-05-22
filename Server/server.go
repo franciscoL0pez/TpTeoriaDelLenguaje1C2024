@@ -1,4 +1,4 @@
-package main
+package Server
 
 import (
 	"bufio"
@@ -23,7 +23,7 @@ type questionAnswer struct {
 	answer   string
 }
 
-func authenticate(username, password string) bool {
+func Authenticate(username, password string) bool {
 	file, err := os.Open("users.csv")
 	if err != nil {
 		fmt.Println("Error al abrir el archivo:", err)
@@ -48,7 +48,7 @@ func authenticate(username, password string) bool {
 	return false
 }
 
-func register(username, password string) error {
+func Register(username, password string) error {
 	file, err := os.OpenFile("users.csv", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func register(username, password string) error {
 	return nil
 }
 
-func handleConnection(conn net.Conn) {
+func HandleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	fmt.Println("Nueva conexion:", conn.RemoteAddr())
@@ -91,7 +91,7 @@ func handleConnection(conn net.Conn) {
 		password, _ := reader.ReadString('\n')
 		password = strings.TrimSpace(password)
 
-		if authenticate(username, password) {
+		if Authenticate(username, password) {
 			fmt.Println("Usuario autenticado:", username)
 			conn.Write([]byte("Bienvenido, " + username + "!\n"))
 		} else {
@@ -108,7 +108,7 @@ func handleConnection(conn net.Conn) {
 		password, _ := reader.ReadString('\n')
 		password = strings.TrimSpace(password)
 
-		if err := register(username, password); err != nil {
+		if err := Register(username, password); err != nil {
 			fmt.Println("Error al registrar el usuario:", err)
 			conn.Write([]byte("Error al registrar el usuario.\n"))
 			return
@@ -136,20 +136,20 @@ func handleConnection(conn net.Conn) {
 		if len(parts) > 0 {
 			switch parts[0] {
 			case "GET_QUESTION":
-				sendQuestionToClient(conn)
+				SendQuestionToClient(conn)
 			case "ANSWER":
 				// Verificar si hay al menos dos partes (ANSWER y el número de respuesta)
 				if len(parts) >= 2 {
 					answer := parts[1] // Obtener el número de respuesta
 					fmt.Println("Respuesta recibida:", answer)
-					if checkAnswer(answer) {
+					if CheckAnswer(answer) {
 						fmt.Println("Respuesta Correcta")
 						conn.Write([]byte("CORRECT\n"))
 					} else {
 						fmt.Println("Respuesta Incorrecta")
 						conn.Write([]byte("INCORRECT\n"))
 					}
-					sendQuestionToClient(conn)
+					SendQuestionToClient(conn)
 				} else {
 					fmt.Println("Mensaje de respuesta incorrecto:", message)
 				}
@@ -165,17 +165,16 @@ func handleConnection(conn net.Conn) {
 			}
 		}
 	}
-
 }
 
-func sendQuestionToClient(conn net.Conn) {
-	q := randomQuestion()
+func SendQuestionToClient(conn net.Conn) {
+	q := RandomQuestion()
 	currentQuestion = q.question
 	currentAnswer = q.answer
 	conn.Write([]byte("QUESTION:" + q.question + "\n"))
 }
 
-func loadQuestions() {
+func LoadQuestions() {
 	file, err := os.Open("questions.csv")
 	if err != nil {
 		fmt.Println("Error al abrir el archivo:", err)
@@ -200,20 +199,20 @@ func loadQuestions() {
 	}
 }
 
-func randomQuestion() questionAnswer {
+func RandomQuestion() questionAnswer {
 	rand.Seed(time.Now().UnixNano())
 	indice := rand.Intn(len(questionList))
 	return questionList[indice]
 }
 
-func checkAnswer(answer string) bool {
+func CheckAnswer(answer string) bool {
 	fmt.Println("Answer: ", answer)
 	fmt.Println("Current answer: ", currentAnswer)
 	return answer == currentAnswer // Simplificado para este ejemplo, deberías verificar con la respuesta correcta
 }
 
-func main() {
-	loadQuestions()
+func InitServer() {
+	LoadQuestions()
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		fmt.Println("Error al iniciar el servidor:", err)
@@ -230,6 +229,6 @@ func main() {
 			continue
 		}
 		clients[conn] = true
-		go handleConnection(conn)
+		go HandleConnection(conn)
 	}
 }

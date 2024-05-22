@@ -1,10 +1,16 @@
-module client.go
+module TpTeoriaDelLenguaje1C2024
 
 go 1.18
 
 require fyne.io/fyne/v2 v2.4.5
 
 require (
+	github.com/fyne-io/mobile v0.1.2 // indirect
+	github.com/goki/freetype v0.0.0-20181231101311-fa8a33aabaff // indirect
+)
+
+require (
+	fyne.io/fyne v1.4.3
 	fyne.io/systray v1.10.1-0.20231115130155-104f5ef7839e // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fredbi/uri v1.0.0 // indirect
