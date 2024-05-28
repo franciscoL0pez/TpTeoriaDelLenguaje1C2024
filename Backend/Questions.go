@@ -103,7 +103,7 @@ func RandomQuestion(questionList []questionAnswer) questionAnswer {
 }
 
 func GiveRandomQuestionToPlayer(questionList []questionAnswer) bool {
-	q := randomQuestion(questionList)
+	q := RandomQuestion(questionList)
 	fmt.Print(q.question)
 
 	var answer string
