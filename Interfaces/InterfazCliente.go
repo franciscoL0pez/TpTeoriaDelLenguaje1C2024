@@ -15,7 +15,6 @@ type UI struct {
 	client         *Client.Client
 	myApp          fyne.App
 	loginWindow    fyne.Window
-	//users          fyne.Window
 	messageDisplay *widget.Label
 	questionLabel  *widget.Label
 	answerEntry    *widget.Entry
@@ -86,23 +85,40 @@ func (ui *UI) OpenChooseWindow() {
 }
 
 func (ui *UI) OpenChatWindow() {
-	chatWindow := ui.myApp.NewWindow("Chat")
-	messageEntry := widget.NewEntry()
-	sendButton := widget.NewButton("Send", func() {
-		message := messageEntry.Text
-		ui.client.SendMessage(message)
-		messageEntry.SetText("")
-	})
+    chatWindow := ui.myApp.NewWindow("Chat")
 
-	ui.messageDisplay = widget.NewLabel("")
+    backButton := widget.NewButton("Back", func() {
+        ui.OpenChooseWindow()
+        chatWindow.Close()
+    })
 
-	chatWindow.SetContent(container.NewVBox(
-		ui.messageDisplay,
-		container.NewBorder(nil, nil, nil, sendButton, messageEntry),
-	))
+    messageEntry := widget.NewEntry()
+    messageEntry.SetPlaceHolder("Type your message...")
 
-	chatWindow.Resize(fyne.NewSize(400, 400))
-	chatWindow.Show()
+    sendButton := widget.NewButton("Send", func() {
+        message := messageEntry.Text
+        ui.client.SendMessage(message)
+        messageEntry.SetText("")
+    })
+
+    inputContainer := container.NewBorder(nil, nil, nil, sendButton, messageEntry)
+
+    ui.messageDisplay = widget.NewLabel("")
+
+    chatContent := container.NewVBox(ui.messageDisplay)
+    chatScroll := container.NewVScroll(chatContent)
+    chatScroll.SetMinSize(fyne.NewSize(400, 300))
+
+    mainContainer := container.NewBorder(
+        container.NewBorder(nil, nil, backButton, nil, nil),
+        inputContainer,
+        nil, nil, 
+        chatScroll, 
+    )
+
+    chatWindow.SetContent(mainContainer)
+    chatWindow.Resize(fyne.NewSize(400, 400))
+    chatWindow.Show()
 }
 
 func (ui *UI) OpenGameWindow() {

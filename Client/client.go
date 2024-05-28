@@ -9,6 +9,7 @@ import (
 
 type Client struct {
 	Conn net.Conn
+	Name string
 }
 
 func (c *Client) SendCredentials(option, username, password string) error {
@@ -42,6 +43,7 @@ func (c *Client) SendCredentials(option, username, password string) error {
 	fmt.Print(response)
 
 	if strings.Contains(response, "Bienvenido") {
+		c.Name = username
 		return nil
 	}
 	return fmt.Errorf("invalid credentials")
@@ -60,5 +62,5 @@ func (c *Client) ReceiveMessages(handler func(string)) {
 }
 
 func (c *Client) SendMessage(message string) {
-	c.Conn.Write([]byte(message + "\n"))
+	c.Conn.Write([]byte(c.Name + ": " + message + "\n"))
 }

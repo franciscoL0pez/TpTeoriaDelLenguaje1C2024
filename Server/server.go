@@ -129,6 +129,10 @@ func HandleConnection(conn net.Conn) {
 			return
 		}
 		message = strings.TrimSpace(message)
+		indice := strings.Index(message, ":")
+		if indice != -1 {
+			message = strings.TrimSpace(message[indice+2:])
+		}
 		fmt.Println("Mensaje recibido:", message)
 
 		// Dividir el mensaje en palabras
