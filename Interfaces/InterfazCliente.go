@@ -1,26 +1,28 @@
-package Client
+package Interfaces
 
 import (
+	"TpTeoriaDelLenguaje1C2024/Client"
 	"fmt"
 	"strings"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
 
 type UI struct {
-	client         *client.Client
+	client         *Client.Client
 	myApp          fyne.App
 	loginWindow    fyne.Window
-	users          fyne.Window
+	//users          fyne.Window
 	messageDisplay *widget.Label
 	questionLabel  *widget.Label
 	answerEntry    *widget.Entry
 	optionsButtons []*widget.Button
 }
 
-func NewUI(client *client.Client, app fyne.App) *UI {
+func NewUI(client *Client.Client, app fyne.App) *UI {
 	return &UI{client: client, myApp: app}
 }
 
@@ -173,4 +175,24 @@ func (ui *UI) updateAnswerMessage(message string) {
 	if ui.messageDisplay != nil {
 		ui.messageDisplay.SetText(message)
 	}
+}
+
+
+func InitUser() {
+	myApp := app.New()
+	client := &Client.Client{}
+	ui := NewUI(client, myApp)
+	welcomeWindow := myApp.NewWindow("Preguntados")
+	welcomeWindow.SetContent(container.NewVBox(
+		widget.NewLabel("Bienvenido a Preguntados"),
+		widget.NewButton("Iniciar sesion", func() {
+			ui.ShowLoginWindow()
+			welcomeWindow.Hide()
+		}),
+	))
+	welcomeWindow.Resize(fyne.NewSize(400, 400))
+	welcomeWindow.Show()
+
+	myApp.Run()
+
 }

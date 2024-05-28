@@ -1,9 +1,9 @@
 package main
 
 import (
-	"TpTeoriaDelLenguaje1C2024/Client"
+	"TpTeoriaDelLenguaje1C2024/Interfaces"
 )
 
 func main() {
-	Client.InitUser()
+	Interfaces.InitUser()
 }
