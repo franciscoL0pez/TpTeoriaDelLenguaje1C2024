@@ -21,6 +21,9 @@ var (
 type questionAnswer struct {
 	question string
 	answer   string
+	option1 string
+	option2 string
+	option3 string
 }
 
 func Authenticate(username, password string) bool {
@@ -175,7 +178,20 @@ func SendQuestionToClient(conn net.Conn) {
 	q := RandomQuestion()
 	currentQuestion = q.question
 	currentAnswer = q.answer
+	currentOption1 := q.option1
+	currentOption2 := q.option2
+	currentOption3 := q.option3
+	options := []string{currentAnswer, currentOption1, currentOption2, currentOption3}
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(options), func(i, j int) {
+		options[i], options[j] = options[j], options[i]
+	})
+	
 	conn.Write([]byte("QUESTION:" + q.question + "\n"))
+	for _, value := range options{ 
+		conn.Write([]byte("OPTION:" + value + "\n"))
+	} 
+	conn.Write([]byte("END_OPTION\n"))
 }
 
 func LoadQuestions() {
@@ -197,7 +213,10 @@ func LoadQuestions() {
 	for _, record := range records {
 		q := questionAnswer{
 			question: record[0],
-			answer:   record[1],
+			answer:   record[4],
+			option1:  record[1],
+			option2:  record[2],
+			option3:  record[3],
 		}
 		questionList = append(questionList, q)
 	}

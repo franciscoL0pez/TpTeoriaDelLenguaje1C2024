@@ -19,6 +19,7 @@ type UI struct {
 	questionLabel  *widget.Label
 	answerEntry    *widget.Entry
 	optionsButtons []*widget.Button
+	options []string
 }
 
 func NewUI(client *Client.Client, app fyne.App) *UI {
@@ -95,14 +96,6 @@ func (ui *UI) OpenChatWindow() {
     messageEntry := widget.NewEntry()
     messageEntry.SetPlaceHolder("Type your message...")
 
-    sendButton := widget.NewButton("Send", func() {
-        message := messageEntry.Text
-        ui.client.SendMessage(message)
-        messageEntry.SetText("")
-    })
-
-    inputContainer := container.NewBorder(nil, nil, nil, sendButton, messageEntry)
-
     ui.messageDisplay = widget.NewLabel("")
 
     chatContent := container.NewVBox(ui.messageDisplay)
@@ -111,7 +104,7 @@ func (ui *UI) OpenChatWindow() {
 
     mainContainer := container.NewBorder(
         container.NewBorder(nil, nil, backButton, nil, nil),
-        inputContainer,
+		nil,
         nil, nil, 
         chatScroll, 
     )
@@ -136,7 +129,7 @@ func (ui *UI) OpenGameWindow() {
 
 	gameWindow.SetContent(container.NewVBox(
 		ui.questionLabel,
-		ui.messageDisplay,
+		ui.optionsButtons[],
 		container.NewGridWithColumns(2,
 			ui.answerEntry,
 			checkButton,
@@ -153,7 +146,11 @@ func (ui *UI) handleServerMessage(message string) {
 	if strings.HasPrefix(message, "QUESTION:") {
 		options := strings.Split(strings.TrimPrefix(message, "QUESTION:"), "\n")
 		ui.updateQuestion(options[0])
-		ui.updateOptions(options[1:])
+	} else if strings.TrimSpace(message) == "OPTION"{
+		opt := strings.Split(strings.TrimPrefix(message, "OPTION:"), "\n")
+		ui.options = append(ui.options, opt[0])
+	} else if strings.TrimSpace(message) == "END_OPTION"{
+		ui.updateOptions()
 	} else if strings.TrimSpace(message) == "CORRECT" {
 		ui.updateAnswerMessage("Respuesta Correcta")
 	} else if strings.TrimSpace(message) == "INCORRECT" {
@@ -171,13 +168,13 @@ func (ui *UI) updateQuestion(question string) {
 	ui.questionLabel.SetText(strings.TrimPrefix(question, "QUESTION:"))
 }
 
-func (ui *UI) updateOptions(options []string) {
+func (ui *UI) updateOptions() {
 	for _, button := range ui.optionsButtons {
 		button.Hide()
 	}
 
-	ui.optionsButtons = make([]*widget.Button, len(options))
-	for i, option := range options {
+	ui.optionsButtons = make([]*widget.Button, len(ui.options))
+	for i, option := range ui.options {
 		ui.optionsButtons[i] = widget.NewButton(option, func(option string) func() {
 			return func() {
 				ui.client.SendMessage("ANSWER " + option)
