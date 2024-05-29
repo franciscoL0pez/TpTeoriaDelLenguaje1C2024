@@ -17,9 +17,8 @@ type UI struct {
 	loginWindow    fyne.Window
 	messageDisplay *widget.Label
 	questionLabel  *widget.Label
-	answerEntry    *widget.Entry
-	optionsButtons []*widget.Button
-	options []string
+	options        []string
+	optionsLabel   *widget.Label
 }
 
 func NewUI(client *Client.Client, app fyne.App) *UI {
@@ -86,32 +85,32 @@ func (ui *UI) OpenChooseWindow() {
 }
 
 func (ui *UI) OpenChatWindow() {
-    chatWindow := ui.myApp.NewWindow("Chat")
+	chatWindow := ui.myApp.NewWindow("Chat")
 
-    backButton := widget.NewButton("Back", func() {
-        ui.OpenChooseWindow()
-        chatWindow.Close()
-    })
+	backButton := widget.NewButton("Back", func() {
+		ui.OpenChooseWindow()
+		chatWindow.Close()
+	})
 
-    messageEntry := widget.NewEntry()
-    messageEntry.SetPlaceHolder("Type your message...")
+	messageEntry := widget.NewEntry()
+	messageEntry.SetPlaceHolder("Type your message...")
 
-    ui.messageDisplay = widget.NewLabel("")
+	ui.messageDisplay = widget.NewLabel("")
 
-    chatContent := container.NewVBox(ui.messageDisplay)
-    chatScroll := container.NewVScroll(chatContent)
-    chatScroll.SetMinSize(fyne.NewSize(400, 300))
+	chatContent := container.NewVBox(ui.messageDisplay)
+	chatScroll := container.NewVScroll(chatContent)
+	chatScroll.SetMinSize(fyne.NewSize(400, 300))
 
-    mainContainer := container.NewBorder(
-        container.NewBorder(nil, nil, backButton, nil, nil),
+	mainContainer := container.NewBorder(
+		container.NewBorder(nil, nil, backButton, nil, nil),
 		nil,
-        nil, nil, 
-        chatScroll, 
-    )
+		nil, nil,
+		chatScroll,
+	)
 
-    chatWindow.SetContent(mainContainer)
-    chatWindow.Resize(fyne.NewSize(400, 400))
-    chatWindow.Show()
+	chatWindow.SetContent(mainContainer)
+	chatWindow.Resize(fyne.NewSize(400, 400))
+	chatWindow.Show()
 }
 
 func (ui *UI) OpenGameWindow() {
@@ -120,22 +119,41 @@ func (ui *UI) OpenGameWindow() {
 
 	ui.questionLabel = widget.NewLabel("")
 	ui.messageDisplay = widget.NewLabel("")
+	ui.optionsLabel = widget.NewLabel("")
 
-	ui.answerEntry = widget.NewEntry()
-	checkButton := widget.NewButton("Check", func() {
-		ui.client.SendMessage("ANSWER " + ui.answerEntry.Text)
-		ui.answerEntry.SetText("")
-	})
+	SendAnser := func(text string) {
+		if text == "A" {
+			ui.client.SendMessage("ANSWER " + ui.options[0])
+		} else if text == "B" {
+			ui.client.SendMessage("ANSWER " + ui.options[1])
+		} else if text == "C" {
+			ui.client.SendMessage("ANSWER " + ui.options[2])
+		} else {
+			ui.client.SendMessage("ANSWER " + ui.options[3])
+		}
+	}
 
-	gameWindow.SetContent(container.NewVBox(
+	buttonTexts := []string{"A", "B", "C", "D"}
+
+	buttons := make([]*widget.Button, len(buttonTexts))
+	for i, text := range buttonTexts {
+		text := text
+		buttons[i] = widget.NewButton(text, func() {
+			SendAnser(text)
+		})
+	}
+	buttonGrid := container.NewGridWithColumns(2,
+		buttons[0], buttons[1],
+		buttons[2], buttons[3],
+	)
+
+	mainContainer := container.NewVBox(
 		ui.questionLabel,
-		ui.optionsButtons[],
-		container.NewGridWithColumns(2,
-			ui.answerEntry,
-			checkButton,
-		),
-	))
+		ui.optionsLabel,
+		buttonGrid,
+	)
 
+	gameWindow.SetContent(mainContainer)
 	ui.client.SendMessage("GET_QUESTION\n")
 
 	gameWindow.Show()
@@ -144,13 +162,16 @@ func (ui *UI) OpenGameWindow() {
 func (ui *UI) handleServerMessage(message string) {
 	fmt.Println("Mensaje leído para el Handle: ", message)
 	if strings.HasPrefix(message, "QUESTION:") {
+		ui.options = ui.options[:0]
 		options := strings.Split(strings.TrimPrefix(message, "QUESTION:"), "\n")
 		ui.updateQuestion(options[0])
-	} else if strings.TrimSpace(message) == "OPTION"{
+	} else if strings.HasPrefix(message, "OPTION:") {
 		opt := strings.Split(strings.TrimPrefix(message, "OPTION:"), "\n")
+		fmt.Println("Opcion guardada: " + opt[0])
 		ui.options = append(ui.options, opt[0])
-	} else if strings.TrimSpace(message) == "END_OPTION"{
-		ui.updateOptions()
+	} else if strings.TrimSpace(message) == "END_OPTION" {
+		ui.optionsLabel.SetText("")
+		ui.updateOptionLabel()
 	} else if strings.TrimSpace(message) == "CORRECT" {
 		ui.updateAnswerMessage("Respuesta Correcta")
 	} else if strings.TrimSpace(message) == "INCORRECT" {
@@ -168,28 +189,16 @@ func (ui *UI) updateQuestion(question string) {
 	ui.questionLabel.SetText(strings.TrimPrefix(question, "QUESTION:"))
 }
 
-func (ui *UI) updateOptions() {
-	for _, button := range ui.optionsButtons {
-		button.Hide()
-	}
-
-	ui.optionsButtons = make([]*widget.Button, len(ui.options))
-	for i, option := range ui.options {
-		ui.optionsButtons[i] = widget.NewButton(option, func(option string) func() {
-			return func() {
-				ui.client.SendMessage("ANSWER " + option)
-			}
-		}(option))
-		ui.optionsButtons[i].Show()
-	}
-}
-
 func (ui *UI) updateAnswerMessage(message string) {
 	if ui.messageDisplay != nil {
 		ui.messageDisplay.SetText(message)
 	}
 }
 
+func (ui *UI) updateOptionLabel() {
+	ui.optionsLabel.SetText("A: " + ui.options[0] + "\n" + "B: " + ui.options[1] + "\n" + "C: " + ui.options[2] + "\n" + "D: " + ui.options[3])
+
+}
 
 func InitUser() {
 	myApp := app.New()
