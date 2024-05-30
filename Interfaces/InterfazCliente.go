@@ -95,16 +95,24 @@ func (ui *UI) OpenChatWindow() {
 	messageEntry := widget.NewEntry()
 	messageEntry.SetPlaceHolder("Type your message...")
 
+	sendButton := widget.NewButton("Send", func() {
+		message := messageEntry.Text
+		ui.client.SendMessage(message)
+		messageEntry.SetText("")
+	})
+
 	ui.messageDisplay = widget.NewLabel("")
 
 	chatContent := container.NewVBox(ui.messageDisplay)
 	chatScroll := container.NewVScroll(chatContent)
 	chatScroll.SetMinSize(fyne.NewSize(400, 300))
+	inputContainer := container.NewBorder(nil, nil, nil, sendButton, messageEntry)
 
 	mainContainer := container.NewBorder(
 		container.NewBorder(nil, nil, backButton, nil, nil),
+		inputContainer,
 		nil,
-		nil, nil,
+		nil,
 		chatScroll,
 	)
 

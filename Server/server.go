@@ -21,9 +21,9 @@ var (
 type questionAnswer struct {
 	question string
 	answer   string
-	option1 string
-	option2 string
-	option3 string
+	option1  string
+	option2  string
+	option3  string
 }
 
 func Authenticate(username, password string) bool {
@@ -136,7 +136,6 @@ func HandleConnection(conn net.Conn) {
 		if indice != -1 {
 			message = strings.TrimSpace(message[indice+2:])
 		}
-		fmt.Println("Mensaje recibido:", message)
 
 		// Dividir el mensaje en palabras
 		parts := strings.Fields(message)
@@ -186,11 +185,11 @@ func SendQuestionToClient(conn net.Conn) {
 	rand.Shuffle(len(options), func(i, j int) {
 		options[i], options[j] = options[j], options[i]
 	})
-	
+
 	conn.Write([]byte("QUESTION:" + q.question + "\n"))
-	for _, value := range options{ 
+	for _, value := range options {
 		conn.Write([]byte("OPTION:" + value + "\n"))
-	} 
+	}
 	conn.Write([]byte("END_OPTION\n"))
 }
 
