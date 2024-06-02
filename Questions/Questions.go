@@ -58,7 +58,7 @@ func selecRandomCategory() string {
 	rand.Seed(time.Now().UnixNano())
 	randomNumber := rand.Intn(4)
 
-	categoryList := []string{"questionsSports.csv", "questionsScience.csv", "questionsEntertainment.csv", "questionsHistory.csv"}
+	categoryList := []string{"deportes.csv", "ciencia.csv", "entretenimiento.csv", "historia.csv"}
 
 	category := categoryList[randomNumber]
 
