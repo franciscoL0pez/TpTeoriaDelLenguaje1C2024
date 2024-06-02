@@ -4,6 +4,8 @@ go 1.22.3
 
 require fyne.io/fyne/v2 v2.4.5
 
+require fyne.io/fyne v1.4.3 // indirect
+
 require (
 	fyne.io/systray v1.10.1-0.20231115130155-104f5ef7839e // indirect
 	github.com/andlabs/ui v0.0.0-20200610043537-70a69d6ae31e
