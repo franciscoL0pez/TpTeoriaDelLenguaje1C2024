@@ -62,5 +62,6 @@ func (c *Client) ReceiveMessages(handler func(string)) {
 }
 
 func (c *Client) SendMessage(message string) {
-	c.Conn.Write([]byte(c.Name + ": " + message + "\n"))
+	c.Conn.Write([]byte(c.Name))
+	c.Conn.Write([]byte(message))
 }
