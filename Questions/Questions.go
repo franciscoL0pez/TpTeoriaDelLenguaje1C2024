@@ -1,4 +1,4 @@
-package Backend
+package main
 
 import (
 	"bufio"
@@ -15,7 +15,7 @@ type questionAnswer struct {
 	answer   string
 }
 
-func WriteCSVQuestionsAndAnswer(question, answer string) error {
+func writeCSVQuestionsAndAnswer(question, answer string) error {
 	// Abre el archivo CSV en modo append
 	file, err := os.OpenFile("questions.csv", os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
@@ -35,7 +35,7 @@ func WriteCSVQuestionsAndAnswer(question, answer string) error {
 	return nil
 }
 
-func NewQuestionAnswer() (string, string) {
+func newQuestionAnswer() (string, string) {
 	var question, answer string
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -54,7 +54,7 @@ func NewQuestionAnswer() (string, string) {
 
 }
 
-func SelecRandomCategory() string {
+func selecRandomCategory() string {
 	rand.Seed(time.Now().UnixNano())
 	randomNumber := rand.Intn(4)
 
@@ -65,7 +65,7 @@ func SelecRandomCategory() string {
 	return category
 }
 
-func CreateQuestionList(nameArchvie string) ([]questionAnswer, error) {
+func createQuestionList(nameArchvie string) ([]questionAnswer, error) {
 	file, err := os.Open(nameArchvie)
 
 	if err != nil {
@@ -94,7 +94,7 @@ func CreateQuestionList(nameArchvie string) ([]questionAnswer, error) {
 	return questionList, nil
 }
 
-func RandomQuestion(questionList []questionAnswer) questionAnswer {
+func randomQuestion(questionList []questionAnswer) questionAnswer {
 	rand.Seed(time.Now().UnixNano())
 
 	indice := rand.Intn(len(questionList))
@@ -103,7 +103,7 @@ func RandomQuestion(questionList []questionAnswer) questionAnswer {
 }
 
 func GiveRandomQuestionToPlayer(questionList []questionAnswer) bool {
-	q := RandomQuestion(questionList)
+	q := randomQuestion(questionList)
 	fmt.Print(q.question)
 
 	var answer string
@@ -126,4 +126,18 @@ func GiveRandomQuestionToPlayer(questionList []questionAnswer) bool {
 		fmt.Print("Respuesta incorrecta!")
 		return false
 	}
+}
+
+func main() {
+	category := selecRandomCategory()
+
+	questionlist, err := createQuestionList(category)
+
+	if err != nil {
+		fmt.Println("Error reading the file:", err)
+		return
+	}
+
+	GiveRandomQuestionToPlayer(questionlist)
+
 }

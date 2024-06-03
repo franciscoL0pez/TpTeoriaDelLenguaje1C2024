@@ -7,21 +7,26 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
-)
-
-var (
-	clients         = make(map[net.Conn]bool)
-	questionList    []questionAnswer
-	currentQuestion string
-	currentAnswer   string
 )
 
 type questionAnswer struct {
 	question string
 	answer   string
+	option1  string
+	option2  string
+	option3  string
 }
+
+var (
+	clients         = make(map[net.Conn]bool)
+	currentAnswer   string
+	questionDict    = make(map[string][]questionAnswer)
+	currentQuestion string
+	keys            = []string{"Ciencia", "Deportes", "Entretenimiento", "Historia"}
+)
 
 func Authenticate(username, password string) bool {
 	file, err := os.Open("users.csv")
@@ -65,6 +70,58 @@ func Register(username, password string) error {
 	writer.Flush()
 
 	return nil
+}
+
+func addPointsToUser(username string) error {
+	file, err := os.OpenFile("Points/puntos.csv", os.O_RDWR|os.O_CREATE, os.ModePerm)
+	if err != nil {
+		fmt.Println("Error al abrir el archivo CSV:", err)
+		return err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		return err
+	}
+
+	userFound := false
+	for i, record := range records {
+		if record[0] == username {
+			points, err := strconv.Atoi(record[1])
+			if err != nil {
+				fmt.Println("Error to convert")
+				return err
+			}
+			points++
+			records[i][1] = strconv.Itoa(points)
+			userFound = true
+			break
+		}
+	}
+
+	if !userFound {
+		newRecord := []string{username, "1"}
+		records = append(records, newRecord)
+	}
+
+	file, err = os.Create("Points/puntos.csv")
+	if err != nil {
+		return err
+	}
+
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	err = writer.WriteAll(records)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 func HandleConnection(conn net.Conn) {
@@ -129,7 +186,14 @@ func HandleConnection(conn net.Conn) {
 			return
 		}
 		message = strings.TrimSpace(message)
-		fmt.Println("Mensaje recibido:", message)
+		indice := strings.Index(message, ":")
+		messageNameSave := message
+		messageName := message
+		if indice != -1 {
+			fmt.Println("Message antes de trimspace: " + message)
+			message = strings.TrimSpace(message[indice+2:])
+			messageName = strings.TrimSpace(messageName[:indice-1])
+		}
 
 		// Dividir el mensaje en palabras
 		parts := strings.Fields(message)
@@ -140,10 +204,12 @@ func HandleConnection(conn net.Conn) {
 			case "ANSWER":
 				// Verificar si hay al menos dos partes (ANSWER y el número de respuesta)
 				if len(parts) >= 2 {
-					answer := parts[1] // Obtener el número de respuesta
+					answer := strings.Join(parts[1:], " ")
+					//answer := parts[1] // Obtener el número de respuesta
 					fmt.Println("Respuesta recibida:", answer)
 					if CheckAnswer(answer) {
 						fmt.Println("Respuesta Correcta")
+						addPointsToUser(messageName)
 						conn.Write([]byte("CORRECT\n"))
 					} else {
 						fmt.Println("Respuesta Incorrecta")
@@ -155,9 +221,8 @@ func HandleConnection(conn net.Conn) {
 				}
 			default:
 				for client := range clients {
-					_, err := client.Write([]byte(message + "\n"))
+					_, err := client.Write([]byte(messageNameSave + "\n"))
 					if err != nil {
-						fmt.Println("Error al enviar mensaje al cliente:", err)
 						client.Close()
 						delete(clients, client)
 					}
@@ -171,44 +236,69 @@ func SendQuestionToClient(conn net.Conn) {
 	q := RandomQuestion()
 	currentQuestion = q.question
 	currentAnswer = q.answer
+	currentOption1 := q.option1
+	currentOption2 := q.option2
+	currentOption3 := q.option3
+	options := []string{currentAnswer, currentOption1, currentOption2, currentOption3}
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(options), func(i, j int) {
+		options[i], options[j] = options[j], options[i]
+	})
+
 	conn.Write([]byte("QUESTION:" + q.question + "\n"))
+	for _, value := range options {
+		conn.Write([]byte("OPTION:" + value + "\n"))
+	}
+	conn.Write([]byte("END_OPTION\n"))
 }
 
 func LoadQuestions() {
-	file, err := os.Open("questions.csv")
-	if err != nil {
-		fmt.Println("Error al abrir el archivo:", err)
-		return
-	}
-	defer file.Close()
 
-	reader := csv.NewReader(file)
-
-	records, err := reader.ReadAll()
-	if err != nil {
-		fmt.Println("Error al leer el archivo CSV:", err)
-		return
-	}
-
-	for _, record := range records {
-		q := questionAnswer{
-			question: record[0],
-			answer:   record[1],
+	files_text := []string{"Questions/ciencia.csv", "Questions/deportes.csv", "Questions/entretenimiento.csv", "Questions/historia.csv"}
+	for i, fi := range files_text {
+		fmt.Println("Leyendo archivo: " + fi)
+		questionList := make([]questionAnswer, 0)
+		file, err := os.Open(fi)
+		if err != nil {
+			fmt.Println("Error al abrir el archivo:", err)
+			return
 		}
-		questionList = append(questionList, q)
+		defer file.Close()
+
+		reader := csv.NewReader(file)
+
+		records, err := reader.ReadAll()
+		if err != nil {
+			fmt.Println("Error al leer el archivo CSV:", err)
+			return
+		}
+
+		for _, record := range records {
+			q := questionAnswer{
+				question: record[0],
+				answer:   record[4],
+				option1:  record[2],
+				option2:  record[3],
+				option3:  record[1],
+			}
+			questionList = append(questionList, q)
+		}
+		questionDict[keys[i]] = questionList
 	}
 }
 
 func RandomQuestion() questionAnswer {
 	rand.Seed(time.Now().UnixNano())
-	indice := rand.Intn(len(questionList))
-	return questionList[indice]
+	indice_key := rand.Intn(len(keys))
+	indice_ques := rand.Intn(len(questionDict[keys[indice_key]]))
+
+	return questionDict[keys[indice_key]][indice_ques]
 }
 
 func CheckAnswer(answer string) bool {
 	fmt.Println("Answer: ", answer)
 	fmt.Println("Current answer: ", currentAnswer)
-	return answer == currentAnswer // Simplificado para este ejemplo, deberías verificar con la respuesta correcta
+	return answer == currentAnswer
 }
 
 func InitServer() {
