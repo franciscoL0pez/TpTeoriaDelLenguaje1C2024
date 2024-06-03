@@ -4,6 +4,7 @@ import (
 	"TpTeoriaDelLenguaje1C2024/Client"
 	"fmt"
 	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -122,6 +123,7 @@ func (ui *UI) OpenChatWindow() {
 }
 
 func (ui *UI) OpenGameWindow() {
+
 	gameWindow := ui.myApp.NewWindow("Game")
 	gameWindow.Resize(fyne.NewSize(400, 400))
 
@@ -129,17 +131,17 @@ func (ui *UI) OpenGameWindow() {
 	ui.messageDisplay = widget.NewLabel("")
 	ui.optionsLabel = widget.NewLabel("")
 
-	SendAnser := func(text string) {
-		if text == "A" {
-			ui.client.SendMessage("ANSWER " + ui.options[0])
-		} else if text == "B" {
-			ui.client.SendMessage("ANSWER " + ui.options[1])
-		} else if text == "C" {
-			ui.client.SendMessage("ANSWER " + ui.options[2])
-		} else {
-			ui.client.SendMessage("ANSWER " + ui.options[3])
-		}
-	}
+	timerLabel := widget.NewLabel("20")
+	timerContainer := container.NewHBox(
+		widget.NewLabel("Tiempo restante: "),
+		timerLabel,
+	)
+
+	// Función para controlar el temporizador
+
+	done := make(chan bool)
+
+	go resetTimer(ui, timerLabel, done)
 
 	buttonTexts := []string{"A", "B", "C", "D"}
 
@@ -147,9 +149,11 @@ func (ui *UI) OpenGameWindow() {
 	for i, text := range buttonTexts {
 		text := text
 		buttons[i] = widget.NewButton(text, func() {
-			SendAnser(text)
+			SendAnswer(ui, text, timerLabel, done)
+			done <- true
 		})
 	}
+
 	buttonGrid := container.NewGridWithColumns(2,
 		buttons[0], buttons[1],
 		buttons[2], buttons[3],
@@ -161,10 +165,52 @@ func (ui *UI) OpenGameWindow() {
 		buttonGrid,
 	)
 
-	gameWindow.SetContent(mainContainer)
+	newMainContainer := container.NewVBox(
+		timerContainer,
+		mainContainer,
+	)
+
+	gameWindow.SetContent(newMainContainer)
+
 	ui.client.SendMessage("GET_QUESTION\n")
 
 	gameWindow.Show()
+}
+
+func SendAnswer(ui *UI, text string, timerLabel *widget.Label, done chan bool) {
+	if text == "A" {
+		ui.client.SendMessage("ANSWER " + ui.options[0])
+	} else if text == "B" {
+		ui.client.SendMessage("ANSWER " + ui.options[1])
+	} else if text == "C" {
+		ui.client.SendMessage("ANSWER " + ui.options[2])
+	} else if text == "D" {
+		ui.client.SendMessage("ANSWER " + ui.options[3])
+	} else {
+		ui.client.SendMessage("ANSWER " + "TIME OUT")
+	}
+	go resetTimer(ui, timerLabel, done)
+
+}
+
+func resetTimer(ui *UI, timerLabel *widget.Label, done chan bool) {
+	timer := 20
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			timer--
+			timerLabel.SetText(fmt.Sprintf("%d", timer))
+			if timer == 0 {
+				SendAnswer(ui, "INCORRECTO", timerLabel, done)
+				return
+			}
+		case <-done:
+			return
+		}
+	}
 }
 
 func (ui *UI) handleServerMessage(message string) {
