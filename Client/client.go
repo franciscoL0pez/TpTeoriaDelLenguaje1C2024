@@ -62,6 +62,11 @@ func (c *Client) ReceiveMessages(handler func(string)) {
 }
 
 func (c *Client) SendMessage(message string) {
+<<<<<<< HEAD
 	c.Conn.Write([]byte(c.Name))
 	c.Conn.Write([]byte(message))
+=======
+	fmt.Println("ENVIO: " + c.Name + ":" + message + "\n")
+	c.Conn.Write([]byte(c.Name + " : " + message + "\n"))
+>>>>>>> 7f1a9160d214cb09b266461751d056c15a0728a8
 }
