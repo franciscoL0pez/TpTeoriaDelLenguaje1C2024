@@ -20,6 +20,8 @@ type UI struct {
 	questionLabel  *widget.Label
 	options        []string
 	optionsLabel   *widget.Label
+	gameWindow     fyne.Window
+	incorrectShown bool
 }
 
 func NewUI(client *Client.Client, app fyne.App) *UI {
@@ -123,9 +125,14 @@ func (ui *UI) OpenChatWindow() {
 }
 
 func (ui *UI) OpenGameWindow() {
+	if ui.gameWindow != nil {
+		ui.gameWindow.Hide()
+	}
 
 	gameWindow := ui.myApp.NewWindow("Game")
-	gameWindow.Resize(fyne.NewSize(400, 400))
+	ui.gameWindow = gameWindow
+
+	ui.gameWindow.Resize(fyne.NewSize(400, 400))
 
 	ui.questionLabel = widget.NewLabel("")
 	ui.messageDisplay = widget.NewLabel("")
@@ -137,11 +144,29 @@ func (ui *UI) OpenGameWindow() {
 		timerLabel,
 	)
 
-	// Función para controlar el temporizador
-
 	done := make(chan bool)
 
-	go resetTimer(ui, timerLabel, done)
+	go func() {
+		defer close(done)
+		timer := 20
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				timer--
+				timerLabel.SetText(fmt.Sprintf("%d", timer))
+				if timer == 0 {
+					ui.SendAnswer("INCORRECTO")
+					ui.ShowMessageWindow("Respuesta Incorrecta")
+					return
+				}
+			case <-done:
+				return
+			}
+		}
+	}()
 
 	buttonTexts := []string{"A", "B", "C", "D"}
 
@@ -149,7 +174,7 @@ func (ui *UI) OpenGameWindow() {
 	for i, text := range buttonTexts {
 		text := text
 		buttons[i] = widget.NewButton(text, func() {
-			SendAnswer(ui, text, timerLabel, done)
+			ui.SendAnswer(text)
 			done <- true
 		})
 	}
@@ -170,14 +195,14 @@ func (ui *UI) OpenGameWindow() {
 		mainContainer,
 	)
 
-	gameWindow.SetContent(newMainContainer)
+	ui.gameWindow.SetContent(newMainContainer)
 
 	ui.client.SendMessage("GET_QUESTION\n")
 
-	gameWindow.Show()
+	ui.gameWindow.Show()
 }
 
-func SendAnswer(ui *UI, text string, timerLabel *widget.Label, done chan bool) {
+func (ui *UI) SendAnswer(text string) {
 	if text == "A" {
 		ui.client.SendMessage("ANSWER " + ui.options[0])
 	} else if text == "B" {
@@ -189,28 +214,34 @@ func SendAnswer(ui *UI, text string, timerLabel *widget.Label, done chan bool) {
 	} else {
 		ui.client.SendMessage("ANSWER " + "TIME OUT")
 	}
-	go resetTimer(ui, timerLabel, done)
-
 }
 
-func resetTimer(ui *UI, timerLabel *widget.Label, done chan bool) {
-	timer := 20
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			timer--
-			timerLabel.SetText(fmt.Sprintf("%d", timer))
-			if timer == 0 {
-				SendAnswer(ui, "INCORRECTO", timerLabel, done)
-				return
-			}
-		case <-done:
-			return
-		}
+func (ui *UI) ShowMessageWindow(message string) {
+	if ui.incorrectShown {
+		return
 	}
+
+	ui.incorrectShown = true
+
+	messageWindow := ui.myApp.NewWindow("Mensaje")
+	messageLabel := widget.NewLabel(message)
+
+	messageWindow.SetContent(container.NewVBox(
+		messageLabel,
+	))
+
+	if ui.gameWindow != nil {
+		ui.gameWindow.Hide()
+	}
+
+	messageWindow.Resize(fyne.NewSize(400, 400))
+	messageWindow.Show()
+
+	time.AfterFunc(3*time.Second, func() {
+		messageWindow.Close()
+		ui.incorrectShown = false
+		ui.OpenGameWindow()
+	})
 }
 
 func (ui *UI) handleServerMessage(message string) {
@@ -227,9 +258,9 @@ func (ui *UI) handleServerMessage(message string) {
 		ui.optionsLabel.SetText("")
 		ui.updateOptionLabel()
 	} else if strings.TrimSpace(message) == "CORRECT" {
-		ui.updateAnswerMessage("Respuesta Correcta")
+		ui.ShowMessageWindow("Respuesta Correcta")
 	} else if strings.TrimSpace(message) == "INCORRECT" {
-		ui.updateAnswerMessage("Respuesta Incorrecta")
+		ui.ShowMessageWindow("Respuesta Incorrecta")
 	} else {
 		ui.updateChatMessage(message)
 	}
@@ -243,15 +274,8 @@ func (ui *UI) updateQuestion(question string) {
 	ui.questionLabel.SetText(strings.TrimPrefix(question, "QUESTION:"))
 }
 
-func (ui *UI) updateAnswerMessage(message string) {
-	if ui.messageDisplay != nil {
-		ui.messageDisplay.SetText(message)
-	}
-}
-
 func (ui *UI) updateOptionLabel() {
 	ui.optionsLabel.SetText("A: " + ui.options[0] + "\n" + "B: " + ui.options[1] + "\n" + "C: " + ui.options[2] + "\n" + "D: " + ui.options[3])
-
 }
 
 func InitUser() {
@@ -270,5 +294,4 @@ func InitUser() {
 	welcomeWindow.Show()
 
 	myApp.Run()
-
 }
