@@ -26,6 +26,7 @@ var (
 	questionDict    = make(map[string][]questionAnswer)
 	currentQuestion string
 	keys            = []string{"Ciencia", "Deportes", "Entretenimiento", "Historia"}
+	indiceKey       int
 )
 
 func Authenticate(username, password string) bool {
@@ -245,6 +246,8 @@ func SendQuestionToClient(conn net.Conn) {
 		options[i], options[j] = options[j], options[i]
 	})
 
+	conn.Write([]byte("CATEGORY:" + keys[indiceKey] + "\n"))
+
 	conn.Write([]byte("QUESTION:" + q.question + "\n"))
 	for _, value := range options {
 		conn.Write([]byte("OPTION:" + value + "\n"))
@@ -289,10 +292,10 @@ func LoadQuestions() {
 
 func RandomQuestion() questionAnswer {
 	rand.Seed(time.Now().UnixNano())
-	indice_key := rand.Intn(len(keys))
-	indice_ques := rand.Intn(len(questionDict[keys[indice_key]]))
+	indiceKey = rand.Intn(len(keys))
+	indice_ques := rand.Intn(len(questionDict[keys[indiceKey]]))
 
-	return questionDict[keys[indice_key]][indice_ques]
+	return questionDict[keys[indiceKey]][indice_ques]
 }
 
 func CheckAnswer(answer string) bool {

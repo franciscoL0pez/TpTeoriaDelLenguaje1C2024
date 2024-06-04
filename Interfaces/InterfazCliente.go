@@ -20,8 +20,10 @@ type UI struct {
 	questionLabel  *widget.Label
 	options        []string
 	optionsLabel   *widget.Label
+	categoryLabel  *widget.Label
 	gameWindow     fyne.Window
 	incorrectShown bool
+	category       string // Ahora category es un campo de la estructura UI
 }
 
 func NewUI(client *Client.Client, app fyne.App) *UI {
@@ -124,6 +126,10 @@ func (ui *UI) OpenChatWindow() {
 	chatWindow.Show()
 }
 
+func (ui *UI) updateCategoryLabel() {
+	ui.categoryLabel.SetText("Categoría: " + ui.category)
+}
+
 func (ui *UI) OpenGameWindow() {
 	if ui.gameWindow != nil {
 		ui.gameWindow.Hide()
@@ -139,9 +145,12 @@ func (ui *UI) OpenGameWindow() {
 	ui.optionsLabel = widget.NewLabel("")
 
 	timerLabel := widget.NewLabel("20")
+	ui.categoryLabel = widget.NewLabel("Categoría: " + ui.category)
+
 	timerContainer := container.NewHBox(
 		widget.NewLabel("Tiempo restante: "),
 		timerLabel,
+		ui.categoryLabel,
 	)
 
 	done := make(chan bool)
@@ -246,7 +255,12 @@ func (ui *UI) ShowMessageWindow(message string) {
 
 func (ui *UI) handleServerMessage(message string) {
 	fmt.Println("Mensaje leído para el Handle: ", message)
-	if strings.HasPrefix(message, "QUESTION:") {
+	if strings.HasPrefix(message, "CATEGORY:") {
+		res := strings.Split(strings.TrimPrefix(message, "CATEGORY:"), "\n")
+		fmt.Println("Categoria leida: " + res[0])
+		ui.category = res[0]
+		ui.updateCategoryLabel()
+	} else if strings.HasPrefix(message, "QUESTION:") {
 		ui.options = ui.options[:0]
 		options := strings.Split(strings.TrimPrefix(message, "QUESTION:"), "\n")
 		ui.updateQuestion(options[0])
