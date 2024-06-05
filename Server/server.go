@@ -27,13 +27,16 @@ type questionAnswer struct {
 }
 
 var (
-	clients         = make(map[net.Conn]*Client)
-	currentAnswer   = make(map[net.Conn]string)
-	currentQuestion = make(map[net.Conn]string)
-	questionDict    = make(map[string][]questionAnswer)
-	keys            = []string{"Ciencia", "Deportes", "Entretenimiento", "Historia"}
-	indiceKey       int
-	mutex           sync.Mutex
+	clients            = make(map[net.Conn]*Client)
+	clientsWaitingPlay = make(map[net.Conn]*Client)
+	clientsPlaying     = make(map[int][]*Client)
+	currentAnswer      = make(map[net.Conn]string)
+	currentQuestion    = make(map[net.Conn]string)
+	questionDict       = make(map[string][]questionAnswer)
+	keys               = []string{"Ciencia", "Deportes", "Entretenimiento", "Historia"}
+	indiceKey          int
+	indicePartida      = 0
+	mutex              sync.Mutex
 )
 
 func Authenticate(username, password string) bool {
@@ -132,6 +135,35 @@ func addPointsToUser(username string) error {
 
 }
 
+func sendReadyMessage() {
+	mutex.Lock()
+	users := clientsPlaying[indicePartida]
+	i := 1
+	for _, client := range users {
+		client.conn.Write([]byte("READY:" + users[i].username))
+		i--
+	}
+	mutex.Unlock()
+}
+
+func assignRival() {
+	players := make(map[net.Conn]*Client)
+	for {
+		for conn, client := range clientsWaitingPlay {
+			players[conn] = client
+			if len(players) == 2 {
+				for conne, player := range players {
+					delete(clientsWaitingPlay, conne)
+					clientsPlaying[indicePartida] = append(clientsPlaying[indicePartida], player)
+				}
+				sendReadyMessage()
+				indicePartida++
+				players = make(map[net.Conn]*Client)
+			}
+		}
+	}
+}
+
 func HandleConnection(conn net.Conn) {
 	defer conn.Close()
 
@@ -208,6 +240,10 @@ func HandleConnection(conn net.Conn) {
 		parts := strings.Fields(message)
 		if len(parts) > 0 {
 			switch parts[0] {
+			case "WANT_PLAY":
+				mutex.Lock()
+				clientsWaitingPlay[conn] = clients[conn]
+				mutex.Unlock()
 			case "GET_QUESTION":
 				mutex.Lock()
 				SendQuestionToClient(conn)
@@ -326,7 +362,7 @@ func InitServer() {
 	defer ln.Close()
 
 	fmt.Println("Servidor escuchando en el puerto 8080...")
-
+	go assignRival()
 	for {
 		conn, err := ln.Accept()
 		if err != nil {

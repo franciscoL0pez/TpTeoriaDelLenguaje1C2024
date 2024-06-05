@@ -12,6 +12,10 @@ type Client struct {
 	Name string
 }
 
+func GetName(c *Client) string {
+	return c.Name
+}
+
 func (c *Client) SendCredentials(option, username, password string) error {
 	var err error
 	c.Conn, err = net.Dial("tcp", "127.0.0.1:8080")
