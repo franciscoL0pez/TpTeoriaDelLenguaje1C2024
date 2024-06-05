@@ -21,9 +21,12 @@ type UI struct {
 	options        []string
 	optionsLabel   *widget.Label
 	categoryLabel  *widget.Label
+	rivalLabel     *widget.Label
 	gameWindow     fyne.Window
+	waitWindow     fyne.Window
 	incorrectShown bool
-	category       string // Ahora category es un campo de la estructura UI
+	category       string
+	rival          string
 }
 
 func NewUI(client *Client.Client, app fyne.App) *UI {
@@ -73,6 +76,18 @@ func (ui *UI) ShowLoginWindow() {
 	ui.loginWindow.Show()
 }
 
+func (ui *UI) OpenWaitingWindow() {
+	ui.waitWindow = ui.myApp.NewWindow("Esperando")
+	waitLabel := widget.NewLabel("Buscando un rival con lenguaje corporal de convencimiento")
+
+	ui.waitWindow.SetContent(container.NewVBox(
+		waitLabel,
+	))
+
+	ui.waitWindow.Resize(fyne.NewSize(400, 400))
+	ui.waitWindow.Show()
+}
+
 func (ui *UI) OpenChooseWindow() {
 	chooseWindow := ui.myApp.NewWindow("Elegir")
 	chooseWindow.SetContent(container.NewVBox(
@@ -81,8 +96,9 @@ func (ui *UI) OpenChooseWindow() {
 			chooseWindow.Hide()
 		}),
 		widget.NewButton("Jugar", func() {
-			ui.OpenGameWindow()
+			ui.OpenWaitingWindow()
 			chooseWindow.Hide()
+			ui.client.SendMessage("WANT_PLAY\n")
 		}),
 	))
 	chooseWindow.Resize(fyne.NewSize(400, 400))
@@ -130,9 +146,20 @@ func (ui *UI) updateCategoryLabel() {
 	ui.categoryLabel.SetText("Categoría: " + ui.category)
 }
 
+func (ui *UI) updateRivalLabel() {
+	if ui.rivalLabel != nil {
+		ui.rivalLabel.SetText("Rival: " + ui.rival)
+	} else {
+		fmt.Println("Error: rivalLabel is nil")
+	}
+}
+
 func (ui *UI) OpenGameWindow() {
 	if ui.gameWindow != nil {
 		ui.gameWindow.Hide()
+	}
+	if ui.waitWindow != nil {
+		ui.waitWindow.Hide()
 	}
 
 	gameWindow := ui.myApp.NewWindow("Game")
@@ -146,6 +173,7 @@ func (ui *UI) OpenGameWindow() {
 
 	timerLabel := widget.NewLabel("20")
 	ui.categoryLabel = widget.NewLabel("Categoría: " + ui.category)
+	ui.rivalLabel = widget.NewLabel("Rival: " + ui.rival)
 
 	timerContainer := container.NewHBox(
 		widget.NewLabel("Tiempo restante: "),
@@ -197,6 +225,7 @@ func (ui *UI) OpenGameWindow() {
 		ui.questionLabel,
 		ui.optionsLabel,
 		buttonGrid,
+		ui.rivalLabel, // Agregar el label del rival al contenedor principal
 	)
 
 	newMainContainer := container.NewVBox(
@@ -204,10 +233,13 @@ func (ui *UI) OpenGameWindow() {
 		mainContainer,
 	)
 
-	ui.gameWindow.SetContent(newMainContainer)
-
 	ui.client.SendMessage("GET_QUESTION\n")
 
+	if ui.waitWindow != nil {
+		ui.waitWindow.Hide()
+	}
+
+	ui.gameWindow.SetContent(newMainContainer)
 	ui.gameWindow.Show()
 }
 
@@ -255,7 +287,16 @@ func (ui *UI) ShowMessageWindow(message string) {
 
 func (ui *UI) handleServerMessage(message string) {
 	fmt.Println("Mensaje leído para el Handle: ", message)
-	if strings.HasPrefix(message, "CATEGORY:") {
+	if strings.HasPrefix(message, "READY:") {
+		res := strings.Split(strings.TrimPrefix(message, "READY:"), "\n")
+		fmt.Println("Partida VS: " + res[0])
+		ui.rival = res[0] // Corregir para establecer el rival en lugar de la categoría
+		ui.updateRivalLabel()
+		if ui.waitWindow != nil {
+			ui.waitWindow.Hide()
+			ui.OpenGameWindow()
+		}
+	} else if strings.HasPrefix(message, "CATEGORY:") {
 		res := strings.Split(strings.TrimPrefix(message, "CATEGORY:"), "\n")
 		fmt.Println("Categoria leida: " + res[0])
 		ui.category = res[0]
