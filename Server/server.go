@@ -41,11 +41,10 @@ var (
 
 func assignRival() {
 	for {
-		mutex.Lock() // Bloquear el acceso al mapa mientras se itera sobre él
+		mutex.Lock()
 		for conn1, client1 := range clientsWaitingPlay {
 			for conn2, client2 := range clientsWaitingPlay {
-				if conn1 != conn2 { // Asegurarse de no emparejar al mismo cliente consigo mismo
-					// Emparejar los dos jugadores y enviar el mensaje "READY"
+				if conn1 != conn2 {
 					clientsPlaying[indicePartida] = []*Client{client1, client2}
 					sendReadyMessage(clientsPlaying[indicePartida])
 					indicePartida++
@@ -54,7 +53,8 @@ func assignRival() {
 				}
 			}
 		}
-		mutex.Unlock() // Desbloquear el acceso al mapa después de terminar de iterar
+		mutex.Unlock()
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -246,6 +246,19 @@ func HandleConnection(conn net.Conn) {
 				mutex.Unlock()
 			case "GET_QUESTION":
 				mutex.Lock()
+				SendQuestionToClient(conn)
+				mutex.Unlock()
+			case "ANSWER_PRACTISE":
+				answer := strings.Join(parts[1:], " ")
+				fmt.Println("Respuesta recibida:", answer)
+				mutex.Lock()
+				if CheckAnswer(answer, conn) {
+					fmt.Println("Respuesta Correcta")
+					conn.Write([]byte("CORRECT_PRACTISE\n"))
+				} else {
+					fmt.Println("Respuesta Incorrecta")
+					conn.Write([]byte("INCORRECT_PRACTISE\n"))
+				}
 				SendQuestionToClient(conn)
 				mutex.Unlock()
 			case "ANSWER":
