@@ -147,12 +147,19 @@ func (ui *UI) updateCategoryLabel() {
 }
 
 func (ui *UI) updateRivalLabel() {
-	ui.rivalLabel.SetText("Rival: " + ui.category)
+	if ui.rivalLabel != nil {
+		ui.rivalLabel.SetText("Rival: " + ui.rival)
+	} else {
+		fmt.Println("Error: rivalLabel is nil")
+	}
 }
 
 func (ui *UI) OpenGameWindow() {
 	if ui.gameWindow != nil {
 		ui.gameWindow.Hide()
+	}
+	if ui.waitWindow != nil {
+		ui.waitWindow.Hide()
 	}
 
 	gameWindow := ui.myApp.NewWindow("Game")
@@ -218,12 +225,19 @@ func (ui *UI) OpenGameWindow() {
 		ui.questionLabel,
 		ui.optionsLabel,
 		buttonGrid,
+		ui.rivalLabel, // Agregar el label del rival al contenedor principal
 	)
 
 	newMainContainer := container.NewVBox(
 		timerContainer,
 		mainContainer,
 	)
+
+	ui.client.SendMessage("GET_QUESTION\n")
+
+	if ui.waitWindow != nil {
+		ui.waitWindow.Hide()
+	}
 
 	ui.gameWindow.SetContent(newMainContainer)
 	ui.gameWindow.Show()
@@ -276,13 +290,12 @@ func (ui *UI) handleServerMessage(message string) {
 	if strings.HasPrefix(message, "READY:") {
 		res := strings.Split(strings.TrimPrefix(message, "READY:"), "\n")
 		fmt.Println("Partida VS: " + res[0])
-		ui.rival = res[0]
+		ui.rival = res[0] // Corregir para establecer el rival en lugar de la categoría
 		ui.updateRivalLabel()
 		if ui.waitWindow != nil {
 			ui.waitWindow.Hide()
 			ui.OpenGameWindow()
 		}
-		ui.client.SendMessage("GET_QUESTION\n")
 	} else if strings.HasPrefix(message, "CATEGORY:") {
 		res := strings.Split(strings.TrimPrefix(message, "CATEGORY:"), "\n")
 		fmt.Println("Categoria leida: " + res[0])

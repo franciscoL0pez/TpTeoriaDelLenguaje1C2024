@@ -29,7 +29,7 @@ type questionAnswer struct {
 var (
 	clients            = make(map[net.Conn]*Client)
 	clientsWaitingPlay = make(map[net.Conn]*Client)
-	clientsPlaying     = make(map[int][]*Client)
+	clientsPlaying     = make(map[int][]*Client) // Mapa de índice de partida a lista de jugadores
 	currentAnswer      = make(map[net.Conn]string)
 	currentQuestion    = make(map[net.Conn]string)
 	questionDict       = make(map[string][]questionAnswer)
@@ -38,6 +38,35 @@ var (
 	indicePartida      = 0
 	mutex              sync.Mutex
 )
+
+func assignRival() {
+	for {
+		mutex.Lock() // Bloquear el acceso al mapa mientras se itera sobre él
+		for conn1, client1 := range clientsWaitingPlay {
+			for conn2, client2 := range clientsWaitingPlay {
+				if conn1 != conn2 { // Asegurarse de no emparejar al mismo cliente consigo mismo
+					// Emparejar los dos jugadores y enviar el mensaje "READY"
+					clientsPlaying[indicePartida] = []*Client{client1, client2}
+					sendReadyMessage(clientsPlaying[indicePartida])
+					indicePartida++
+					delete(clientsWaitingPlay, conn1)
+					delete(clientsWaitingPlay, conn2)
+				}
+			}
+		}
+		mutex.Unlock() // Desbloquear el acceso al mapa después de terminar de iterar
+	}
+}
+
+func sendReadyMessage(players []*Client) {
+	for _, player := range players {
+		opponent := players[0]
+		if player == players[0] {
+			opponent = players[1]
+		}
+		player.conn.Write([]byte("READY:" + opponent.username + "\n"))
+	}
+}
 
 func Authenticate(username, password string) bool {
 	file, err := os.Open("users.csv")
@@ -133,35 +162,6 @@ func addPointsToUser(username string) error {
 
 	return nil
 
-}
-
-func sendReadyMessage() {
-	mutex.Lock()
-	users := clientsPlaying[indicePartida]
-	i := 1
-	for _, client := range users {
-		client.conn.Write([]byte("READY:" + users[i].username))
-		i--
-	}
-	mutex.Unlock()
-}
-
-func assignRival() {
-	players := make(map[net.Conn]*Client)
-	for {
-		for conn, client := range clientsWaitingPlay {
-			players[conn] = client
-			if len(players) == 2 {
-				for conne, player := range players {
-					delete(clientsWaitingPlay, conne)
-					clientsPlaying[indicePartida] = append(clientsPlaying[indicePartida], player)
-				}
-				sendReadyMessage()
-				indicePartida++
-				players = make(map[net.Conn]*Client)
-			}
-		}
-	}
 }
 
 func HandleConnection(conn net.Conn) {
