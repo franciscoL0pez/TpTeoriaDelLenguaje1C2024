@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -42,7 +43,7 @@ func (ui *UI) ShowLoginWindow() {
 	passwordEntry := widget.NewPasswordEntry()
 	passwordEntry.SetPlaceHolder("Password")
 
-	loginButton := widget.NewButton("Login", func() {
+	loginButton := widget.NewButtonWithIcon("Login", theme.LoginIcon(), func() {
 		err := ui.client.SendCredentials("1", usernameEntry.Text, passwordEntry.Text)
 		if err == nil {
 			go ui.client.ReceiveMessages(ui.handleServerMessage)
@@ -53,7 +54,7 @@ func (ui *UI) ShowLoginWindow() {
 		}
 	})
 
-	registerButton := widget.NewButton("Register", func() {
+	registerButton := widget.NewButtonWithIcon("Register", theme.AccountIcon(), func() {
 		err := ui.client.SendCredentials("2", usernameEntry.Text, passwordEntry.Text)
 		if err == nil {
 			usernameEntry.SetText("")
@@ -102,7 +103,7 @@ func (ui *UI) OpenPractiseWindow() {
 		ui.categoryLabel,
 	)
 
-	backButton := widget.NewButton("Volver", func() {
+	backButton := widget.NewButtonWithIcon("", theme.ContentUndoIcon(), func() {
 		ui.gameOver = true
 		ui.gameWindow.Close()
 		ui.OpenChooseWindow()
@@ -191,21 +192,22 @@ func (ui *UI) OpenWaitingWindow() {
 func (ui *UI) OpenChooseWindow() {
 	ui.gameOver = false
 	chooseWindow := ui.myApp.NewWindow("Elegir")
+
 	chooseWindow.SetContent(container.NewVBox(
-		widget.NewButton("Jugar", func() {
+		widget.NewButtonWithIcon("Jugar", theme.MediaPlayIcon(), func() {
 			ui.OpenWaitingWindow()
 			chooseWindow.Hide()
 			ui.client.SendMessage("WANT_PLAY\n")
 		}),
-		widget.NewButton("Practicar", func() {
+		widget.NewButtonWithIcon("Practicar", theme.InfoIcon(), func() {
 			chooseWindow.Hide()
 			ui.OpenPractiseWindow()
 		}),
-		widget.NewButton("Chat", func() {
+		widget.NewButtonWithIcon("Chat", theme.MailComposeIcon(), func() {
 			ui.OpenChatWindow()
 			chooseWindow.Hide()
 		}),
-		widget.NewButton("Reglas", func() {
+		widget.NewButtonWithIcon("Reglas", theme.QuestionIcon(), func() {
 			chooseWindow.Hide()
 			ui.OpenRulesWindow(chooseWindow)
 		}),
@@ -217,7 +219,7 @@ func (ui *UI) OpenChooseWindow() {
 func (ui *UI) OpenRulesWindow(parentWindow fyne.Window) {
 	rulesWindow := ui.myApp.NewWindow("Reglas del Juego")
 
-	backButton := widget.NewButton("Volver", func() {
+	backButton := widget.NewButtonWithIcon("", theme.ContentUndoIcon(), func() {
 		rulesWindow.Close()
 		parentWindow.Show()
 	})
@@ -297,7 +299,7 @@ func (ui *UI) OpenRulesWindow(parentWindow fyne.Window) {
 func (ui *UI) OpenChatWindow() {
 	chatWindow := ui.myApp.NewWindow("Chat")
 
-	backButton := widget.NewButton("Back", func() {
+	backButton := widget.NewButtonWithIcon("", theme.ContentUndoIcon(), func() {
 		ui.OpenChooseWindow()
 		chatWindow.Close()
 	})
@@ -305,10 +307,12 @@ func (ui *UI) OpenChatWindow() {
 	messageEntry := widget.NewEntry()
 	messageEntry.SetPlaceHolder("Type your message...")
 
-	sendButton := widget.NewButton("Send", func() {
+	sendButton := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
 		message := messageEntry.Text
-		ui.client.SendMessage(message)
-		messageEntry.SetText("")
+		if message != "" {
+			ui.client.SendMessage(message)
+			messageEntry.SetText("")
+		}
 	})
 
 	ui.messageDisplay = widget.NewLabel("")
@@ -623,7 +627,7 @@ func InitUser() {
 	welcomeWindow := myApp.NewWindow("Preguntados")
 	welcomeWindow.SetContent(container.NewVBox(
 		widget.NewLabel("Bienvenido a Preguntados"),
-		widget.NewButton("Iniciar sesion", func() {
+		widget.NewButtonWithIcon("Login", theme.LoginIcon(), func() {
 			ui.ShowLoginWindow()
 			welcomeWindow.Hide()
 		}),
