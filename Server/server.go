@@ -16,6 +16,8 @@ import (
 type Client struct {
 	conn     net.Conn
 	username string
+	points   int
+	indice   int
 }
 
 type questionAnswer struct {
@@ -46,6 +48,8 @@ func assignRival() {
 			for conn2, client2 := range clientsWaitingPlay {
 				if conn1 != conn2 {
 					clientsPlaying[indicePartida] = []*Client{client1, client2}
+					client1.indice = indicePartida
+					client2.indice = indicePartida
 					sendReadyMessage(clientsPlaying[indicePartida])
 					indicePartida++
 					delete(clientsWaitingPlay, conn1)
@@ -191,7 +195,7 @@ func HandleConnection(conn net.Conn) {
 		if Authenticate(username, password) {
 			fmt.Println("Usuario autenticado:", username)
 			conn.Write([]byte("Bienvenido, " + username + "!\n"))
-			clients[conn] = &Client{conn, username}
+			clients[conn] = &Client{conn, username, 0, 0}
 		} else {
 			fmt.Println("Autenticacion fallida para el usuario:", username)
 			conn.Write([]byte("Autenticacion fallida. Cierre de la conexion.\n"))
@@ -214,7 +218,7 @@ func HandleConnection(conn net.Conn) {
 
 		fmt.Println("Usuario registrado:", username)
 		conn.Write([]byte("Usuario registrado con exito.\n"))
-		clients[conn] = &Client{conn, username}
+		clients[conn] = &Client{conn, username, 0, 0}
 	default:
 		conn.Write([]byte("Opción invalida. Cierre de la conexion.\n"))
 		return
@@ -268,13 +272,20 @@ func HandleConnection(conn net.Conn) {
 					mutex.Lock()
 					if CheckAnswer(answer, conn) {
 						fmt.Println("Respuesta Correcta")
-						addPointsToUser(clients[conn].username)
-						conn.Write([]byte("CORRECT\n"))
+						client := clients[conn]
+						client.points++
+						addPointsToUser(client.username)
+						if client.points >= 2 {
+							endGame(client)
+						} else {
+							conn.Write([]byte("CORRECT\n"))
+							SendQuestionToClient(conn)
+						}
 					} else {
 						fmt.Println("Respuesta Incorrecta")
 						conn.Write([]byte("INCORRECT\n"))
+						SendQuestionToClient(conn)
 					}
-					SendQuestionToClient(conn)
 					mutex.Unlock()
 				} else {
 					fmt.Println("Mensaje de respuesta incorrecto:", message)
@@ -293,6 +304,19 @@ func HandleConnection(conn net.Conn) {
 			}
 		}
 	}
+}
+
+func endGame(winner *Client) {
+	players := clientsPlaying[winner.indice]
+	for _, player := range players {
+		player.points = 0
+		if player == winner {
+			player.conn.Write([]byte("WINNER\n"))
+		} else {
+			player.conn.Write([]byte("LOOSER\n"))
+		}
+	}
+	delete(clientsPlaying, winner.indice)
 }
 
 func SendQuestionToClient(conn net.Conn) {

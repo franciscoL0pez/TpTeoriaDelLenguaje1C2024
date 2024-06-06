@@ -25,6 +25,7 @@ type UI struct {
 	gameWindow     fyne.Window
 	waitWindow     fyne.Window
 	incorrectShown bool
+	gameOver       bool // Nuevo indicador para el estado del juego
 	category       string
 	rival          string
 }
@@ -32,7 +33,6 @@ type UI struct {
 func NewUI(client *Client.Client, app fyne.App) *UI {
 	return &UI{client: client, myApp: app}
 }
-
 func (ui *UI) ShowLoginWindow() {
 	ui.loginWindow = ui.myApp.NewWindow("Login")
 
@@ -103,6 +103,7 @@ func (ui *UI) OpenPractiseWindow() {
 	)
 
 	backButton := widget.NewButton("Volver", func() {
+		ui.gameOver = true
 		ui.gameWindow.Close()
 		ui.OpenChooseWindow()
 	})
@@ -124,12 +125,14 @@ func (ui *UI) OpenPractiseWindow() {
 			select {
 			case <-ticker.C:
 				timer--
-				timerLabel.SetText(fmt.Sprintf("%d", timer))
-				if timer == 0 {
-					ui.SendPractiseAnswer("INCORRECTO")
-					ui.ShowMessageWindow("Respuesta Incorrecta")
+				if timer <= 0 {
+					if !ui.gameOver { // Asegurarse de que no se muestre la respuesta incorrecta si el juego ha terminado
+						ui.SendPractiseAnswer("INCORRECTO")
+						ui.ShowMessageWindow("Respuesta Incorrecta")
+					}
 					return
 				}
+				timerLabel.SetText(fmt.Sprintf("%d", timer))
 			case <-done:
 				return
 			}
@@ -186,6 +189,7 @@ func (ui *UI) OpenWaitingWindow() {
 }
 
 func (ui *UI) OpenChooseWindow() {
+	ui.gameOver = false
 	chooseWindow := ui.myApp.NewWindow("Elegir")
 	chooseWindow.SetContent(container.NewVBox(
 		widget.NewButton("Jugar", func() {
@@ -378,12 +382,14 @@ func (ui *UI) OpenGameWindow() {
 			select {
 			case <-ticker.C:
 				timer--
-				timerLabel.SetText(fmt.Sprintf("%d", timer))
-				if timer == 0 {
-					ui.SendAnswer("INCORRECTO")
-					ui.ShowMessageWindow("Respuesta Incorrecta")
+				if timer <= 0 {
+					if !ui.gameOver {
+						ui.SendPractiseAnswer("INCORRECTO")
+						ui.ShowMessageWindow("Respuesta Incorrecta")
+					}
 					return
 				}
+				timerLabel.SetText(fmt.Sprintf("%d", timer))
 			case <-done:
 				return
 			}
@@ -410,7 +416,7 @@ func (ui *UI) OpenGameWindow() {
 		ui.questionLabel,
 		ui.optionsLabel,
 		buttonGrid,
-		ui.rivalLabel, // Agregar el label del rival al contenedor principal
+		ui.rivalLabel,
 	)
 
 	newMainContainer := container.NewVBox(
@@ -512,6 +518,10 @@ func (ui *UI) ShowPractiseMessageWindow(message string) {
 }
 
 func (ui *UI) handleServerMessage(message string) {
+	if ui.gameOver {
+		return
+	}
+
 	fmt.Println("Mensaje leído para el Handle: ", message)
 	if strings.HasPrefix(message, "READY:") {
 		res := strings.Split(strings.TrimPrefix(message, "READY:"), "\n")
@@ -546,8 +556,51 @@ func (ui *UI) handleServerMessage(message string) {
 		ui.ShowPractiseMessageWindow("Respuesta Correcta")
 	} else if strings.TrimSpace(message) == "INCORRECT_PRACTISE" {
 		ui.ShowPractiseMessageWindow("Respuesta Incorrecta")
+	} else if strings.TrimSpace(message) == "WINNER" {
+		ui.gameOver = true
+		ui.closeWindows()
+		ui.ShowEndMessageWindow("¡Has ganado!")
+	} else if strings.TrimSpace(message) == "LOOSER" {
+		ui.gameOver = true
+		ui.closeWindows()
+		ui.ShowEndMessageWindow("¡Has perdido!")
 	} else {
 		ui.updateChatMessage(message)
+	}
+}
+
+func (ui *UI) ShowEndMessageWindow(message string) {
+	if ui.incorrectShown {
+		return
+	}
+	ui.incorrectShown = true
+
+	messageWindow := ui.myApp.NewWindow("Fin de partida")
+	messageLabel := widget.NewLabel(message)
+
+	messageWindow.SetContent(container.NewVBox(
+		messageLabel,
+	))
+
+	messageWindow.Resize(fyne.NewSize(400, 400))
+	messageWindow.Show()
+
+	time.AfterFunc(3*time.Second, func() {
+		messageWindow.Close()
+		ui.incorrectShown = false
+		ui.OpenChooseWindow()
+		ui.gameOver = false // Reinicia el estado del juego para la próxima partida
+	})
+}
+
+func (ui *UI) closeWindows() {
+	if ui.waitWindow != nil {
+		ui.waitWindow.Close()
+		ui.waitWindow = nil
+	}
+	if ui.gameWindow != nil {
+		ui.gameWindow.Close()
+		ui.gameWindow = nil
 	}
 }
 
