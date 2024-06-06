@@ -244,9 +244,13 @@ func HandleConnection(conn net.Conn) {
 		parts := strings.Fields(message)
 		if len(parts) > 0 {
 			switch parts[0] {
-			case "WANT_PLAY":
+			case "NOT_WANT_PLAY":
 				mutex.Lock()
 				clientsWaitingPlay[conn] = clients[conn]
+				mutex.Unlock()
+			case "WANT_PLAY":
+				mutex.Lock()
+				delete(clientsWaitingPlay, conn)
 				mutex.Unlock()
 			case "GET_QUESTION":
 				mutex.Lock()

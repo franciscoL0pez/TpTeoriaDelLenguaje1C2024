@@ -3,11 +3,14 @@ package Interfaces
 import (
 	"TpTeoriaDelLenguaje1C2024/Client"
 	"fmt"
+	"image/color"
+	"math/rand"
 	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -26,7 +29,7 @@ type UI struct {
 	gameWindow     fyne.Window
 	waitWindow     fyne.Window
 	incorrectShown bool
-	gameOver       bool // Nuevo indicador para el estado del juego
+	gameOver       bool
 	category       string
 	rival          string
 }
@@ -85,6 +88,8 @@ func (ui *UI) OpenPractiseWindow() {
 		ui.waitWindow.Hide()
 	}
 
+	isPractising := true
+
 	gameWindow := ui.myApp.NewWindow("Game")
 	ui.gameWindow = gameWindow
 
@@ -104,7 +109,7 @@ func (ui *UI) OpenPractiseWindow() {
 	)
 
 	backButton := widget.NewButtonWithIcon("", theme.ContentUndoIcon(), func() {
-		ui.gameOver = true
+		isPractising = false
 		ui.gameWindow.Close()
 		ui.OpenChooseWindow()
 	})
@@ -125,9 +130,12 @@ func (ui *UI) OpenPractiseWindow() {
 		for {
 			select {
 			case <-ticker.C:
+				if !isPractising {
+					return
+				}
 				timer--
 				if timer <= 0 {
-					if !ui.gameOver { // Asegurarse de que no se muestre la respuesta incorrecta si el juego ha terminado
+					if isPractising {
 						ui.SendPractiseAnswer("INCORRECTO")
 						ui.ShowMessageWindow("Respuesta Incorrecta")
 					}
@@ -166,7 +174,6 @@ func (ui *UI) OpenPractiseWindow() {
 		topContainer,
 		mainContainer,
 	)
-
 	ui.client.SendMessage("GET_QUESTION\n")
 
 	if ui.waitWindow != nil {
@@ -179,10 +186,63 @@ func (ui *UI) OpenPractiseWindow() {
 
 func (ui *UI) OpenWaitingWindow() {
 	ui.waitWindow = ui.myApp.NewWindow("Esperando")
-	waitLabel := widget.NewLabel("Buscando un rival con lenguaje corporal de convencimiento")
+
+	waitLabel := widget.NewLabel("Buscando rival...")
+
+	circle := canvas.NewCircle(color.NRGBA{R: 0xff, G: 0, B: 0, A: 0xff})
+	circle.Resize(fyne.NewSize(75, 75))
+
+	move := canvas.NewPositionAnimation(fyne.NewPos(0, 50), fyne.NewPos(325, 50), time.Second, circle.Move)
+	move.AutoReverse = true
+	go func() {
+		for {
+			move.Start()
+			time.Sleep(2 * time.Second)
+		}
+	}()
+
+	randomColor := func() color.Color {
+		r := uint8(rand.Intn(256))
+		g := uint8(rand.Intn(256))
+		b := uint8(rand.Intn(256))
+		return color.NRGBA{R: r, G: g, B: b, A: 0xff}
+	}
+
+	go func() {
+		for {
+			newColor := randomColor()
+			oldColor := circle.FillColor
+			start := time.Now()
+			duration := time.Second
+
+			for time.Since(start) < duration {
+				progress := float64(time.Since(start)) / float64(duration)
+				r1, g1, b1, _ := oldColor.RGBA()
+				r2, g2, b2, _ := newColor.RGBA()
+
+				r := uint8(float64(r1) + progress*float64(r2-r1))
+				g := uint8(float64(g1) + progress*float64(g2-g1))
+				b := uint8(float64(b1) + progress*float64(b2-b1))
+
+				circle.FillColor = color.NRGBA{R: r, G: g, B: b, A: 0xff}
+				canvas.Refresh(circle)
+				time.Sleep(time.Millisecond * 400)
+			}
+		}
+	}()
+
+	circleContainer := container.NewWithoutLayout(circle)
+
+	backButton := widget.NewButtonWithIcon("", theme.ContentUndoIcon(), func() {
+		ui.waitWindow.Close()
+		ui.client.SendMessage("NOT_WANT_PLAY\n")
+		ui.OpenChooseWindow()
+	})
 
 	ui.waitWindow.SetContent(container.NewVBox(
 		waitLabel,
+		circleContainer,
+		backButton,
 	))
 
 	ui.waitWindow.Resize(fyne.NewSize(400, 400))
@@ -388,7 +448,7 @@ func (ui *UI) OpenGameWindow() {
 				timer--
 				if timer <= 0 {
 					if !ui.gameOver {
-						ui.SendPractiseAnswer("INCORRECTO")
+						ui.SendAnswer("INCORRECTO")
 						ui.ShowMessageWindow("Respuesta Incorrecta")
 					}
 					return
