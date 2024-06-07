@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -244,13 +245,17 @@ func HandleConnection(conn net.Conn) {
 		parts := strings.Fields(message)
 		if len(parts) > 0 {
 			switch parts[0] {
+			case "GIVE_STATS":
+				mutex.Lock()
+				SendStatsToClient(conn)
+				mutex.Unlock()
 			case "NOT_WANT_PLAY":
 				mutex.Lock()
-				clientsWaitingPlay[conn] = clients[conn]
+				delete(clientsWaitingPlay, conn)
 				mutex.Unlock()
 			case "WANT_PLAY":
 				mutex.Lock()
-				delete(clientsWaitingPlay, conn)
+				clientsWaitingPlay[conn] = clients[conn]
 				mutex.Unlock()
 			case "GET_QUESTION":
 				mutex.Lock()
@@ -321,6 +326,48 @@ func endGame(winner *Client) {
 		}
 	}
 	delete(clientsPlaying, winner.indice)
+}
+
+func SendStatsToClient(conn net.Conn) {
+	file, err := os.Open("Points/puntos.csv")
+	if err != nil {
+		fmt.Println("Error al abrir el archivo CSV:", err)
+		conn.Write([]byte("Error al obtener estadísticas.\n"))
+		return
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		fmt.Println("Error al leer el archivo CSV:", err)
+		conn.Write([]byte("Error al obtener estadísticas.\n"))
+		return
+	}
+
+	type Player struct {
+		Name   string
+		Points int
+	}
+
+	var players []Player
+	for _, record := range records {
+		points, err := strconv.Atoi(record[1])
+		if err != nil {
+			fmt.Println("Error al convertir puntos:", err)
+			continue
+		}
+		players = append(players, Player{Name: record[0], Points: points})
+	}
+
+	sort.Slice(players, func(i, j int) bool {
+		return players[i].Points > players[j].Points
+	})
+
+	for i := 0; i < 5 && i < len(players); i++ {
+		conn.Write([]byte(fmt.Sprintf("TOP_PLAYER: Top %d: %s - %d\n", i+1, players[i].Name, players[i].Points)))
+	}
+	conn.Write([]byte("END_STATS\n"))
 }
 
 func SendQuestionToClient(conn net.Conn) {

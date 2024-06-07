@@ -20,23 +20,26 @@ type UI struct {
 	client         *Client.Client
 	myApp          fyne.App
 	loginWindow    fyne.Window
+	statsLabel     *widget.Label
 	messageDisplay *widget.Label
 	questionLabel  *widget.Label
 	options        []string
+	top            []string
 	optionsLabel   *widget.Label
 	categoryLabel  *widget.Label
 	rivalLabel     *widget.Label
 	gameWindow     fyne.Window
 	waitWindow     fyne.Window
 	incorrectShown bool
-	gameOver       bool
 	category       string
 	rival          string
+	timerEnabled   bool
 }
 
 func NewUI(client *Client.Client, app fyne.App) *UI {
 	return &UI{client: client, myApp: app}
 }
+
 func (ui *UI) ShowLoginWindow() {
 	ui.loginWindow = ui.myApp.NewWindow("Login")
 
@@ -88,7 +91,7 @@ func (ui *UI) OpenPractiseWindow() {
 		ui.waitWindow.Hide()
 	}
 
-	isPractising := true
+	ui.timerEnabled = true
 
 	gameWindow := ui.myApp.NewWindow("Game")
 	ui.gameWindow = gameWindow
@@ -109,7 +112,7 @@ func (ui *UI) OpenPractiseWindow() {
 	)
 
 	backButton := widget.NewButtonWithIcon("", theme.ContentUndoIcon(), func() {
-		isPractising = false
+		ui.timerEnabled = false
 		ui.gameWindow.Close()
 		ui.OpenChooseWindow()
 	})
@@ -130,12 +133,12 @@ func (ui *UI) OpenPractiseWindow() {
 		for {
 			select {
 			case <-ticker.C:
-				if !isPractising {
+				if !ui.timerEnabled {
 					return
 				}
 				timer--
 				if timer <= 0 {
-					if isPractising {
+					if ui.timerEnabled {
 						ui.SendPractiseAnswer("INCORRECTO")
 						ui.ShowMessageWindow("Respuesta Incorrecta")
 					}
@@ -190,9 +193,9 @@ func (ui *UI) OpenWaitingWindow() {
 	waitLabel := widget.NewLabel("Buscando rival...")
 
 	circle := canvas.NewCircle(color.NRGBA{R: 0xff, G: 0, B: 0, A: 0xff})
-	circle.Resize(fyne.NewSize(75, 75))
+	circle.Resize(fyne.NewSize(25, 25))
 
-	move := canvas.NewPositionAnimation(fyne.NewPos(0, 50), fyne.NewPos(325, 50), time.Second, circle.Move)
+	move := canvas.NewPositionAnimation(fyne.NewPos(0, 50), fyne.NewPos(375, 50), time.Second, circle.Move)
 	move.AutoReverse = true
 	go func() {
 		for {
@@ -249,15 +252,44 @@ func (ui *UI) OpenWaitingWindow() {
 	ui.waitWindow.Show()
 }
 
+func (ui *UI) OpenStatsWindow() {
+	statsWindow := ui.myApp.NewWindow("Top 5 - Mejores jugadores")
+
+	backButton := widget.NewButtonWithIcon("", theme.ContentUndoIcon(), func() {
+		statsWindow.Close()
+		ui.OpenChooseWindow()
+	})
+
+	if ui.statsLabel == nil {
+		ui.statsLabel = widget.NewLabel("")
+	}
+	ui.statsLabel.SetText("")
+
+	var statsText string
+	for _, player := range ui.top {
+		statsText += player + "\n\n"
+	}
+	ui.top = nil
+
+	ui.statsLabel.SetText(statsText)
+
+	statsWindow.SetContent(container.NewVBox(
+		ui.statsLabel,
+		backButton,
+	))
+
+	statsWindow.Resize(fyne.NewSize(400, 400))
+	statsWindow.Show()
+}
+
 func (ui *UI) OpenChooseWindow() {
-	ui.gameOver = false
 	chooseWindow := ui.myApp.NewWindow("Elegir")
 
 	chooseWindow.SetContent(container.NewVBox(
 		widget.NewButtonWithIcon("Jugar", theme.MediaPlayIcon(), func() {
+			ui.client.SendMessage("WANT_PLAY\n")
 			ui.OpenWaitingWindow()
 			chooseWindow.Hide()
-			ui.client.SendMessage("WANT_PLAY\n")
 		}),
 		widget.NewButtonWithIcon("Practicar", theme.InfoIcon(), func() {
 			chooseWindow.Hide()
@@ -270,6 +302,11 @@ func (ui *UI) OpenChooseWindow() {
 		widget.NewButtonWithIcon("Reglas", theme.QuestionIcon(), func() {
 			chooseWindow.Hide()
 			ui.OpenRulesWindow(chooseWindow)
+		}),
+		widget.NewButtonWithIcon("Estadisticas", theme.StorageIcon(), func() {
+			ui.client.SendMessage("GIVE_STATS\n")
+			chooseWindow.Hide()
+			ui.OpenStatsWindow()
 		}),
 	))
 	chooseWindow.Resize(fyne.NewSize(400, 400))
@@ -284,71 +321,111 @@ func (ui *UI) OpenRulesWindow(parentWindow fyne.Window) {
 		parentWindow.Show()
 	})
 
-	rulesText := `
-	1. Objetivo del Juego:
-	El objetivo del juego es responder correctamente al mayor número de preguntas 
-	en el menor tiempo posible, compitiendo contra otro jugador en tiempo real.
-	
-	2. Inicio del Juego:
-	Cada jugador debe registrarse para poder acceder al juego..
-	El juego comienza cuando se encuentra un rival dispuesto a jugar.
-	
-	3. Desarrollo del Juego:
-	Cada ronda consta de una pregunta con cuatro opciones de respuesta: A, B, C y D.
-	El jugador tiene 20 segundos para seleccionar una respuesta.
-	Si no se selecciona ninguna respuesta en el tiempo estipulado, 
-	se considera como incorrecta.
-	
-	4. Sistema de Puntuación:
-	Cada respuesta correcta otorga un punto.
-	No se restan puntos por respuestas incorrectas.
-	El primer jugador en llegar a los 10 puntos es declarado ganador.
-	
-	5. Comunicación:
-	Los jugadores pueden comunicarse entre sí a través de un sistema de chat 
-	integrado en el juego.
-	Se espera que los jugadores mantengan un comportamiento respetuoso y adecuado 
-	en el chat.
-	
-	6. Conducta y Fair Play:
-	Está prohibido el uso de cualquier tipo de trampas o ayudas externas.
-	Los jugadores deben respetar las decisiones del sistema de juego
-	 y de los moderadores.
-	
-	7. Penalizaciones:
-	El incumplimiento de las normas de conducta puede llevar a sanciones
-	 como la suspensión de la cuenta o la expulsión definitiva del juego.
-	El uso de lenguaje inapropiado o comportamiento tóxico en el chat también 
-	será penalizado.
-	
-	8. Ayuda y Soporte:
-	Para cualquier problema técnico o dudas sobre el juego, los jugadores 
-	pueden contactar con el soporte técnico a través del correo 
-	"preguntados_support@fi.uba.ar".
-	
-	9. Actualizaciones y Mantenimiento:
-	El juego puede estar sujeto a actualizaciones periódicas para mejorar 
-	la experiencia del usuario.
-	Durante los periodos de mantenimiento, algunas funcionalidades del juego
-	 pueden no estar disponibles temporalmente.
-	
-	10. Privacidad y Seguridad:
-	La información personal de los jugadores se maneja de acuerdo con las
-	 políticas de privacidad establecidas en la plataforma.
-	Se recomienda no compartir información personal sensible 
-	en el chat del juego.`
+	rulesText := widget.NewRichText(
+		&widget.TextSegment{
+			Style: widget.RichTextStyle{
+				TextStyle: fyne.TextStyle{Bold: true},
+			},
+			Text: "1. Objetivo del Juego:\n",
+		},
+		&widget.TextSegment{
+			Text: "El objetivo del juego es responder correctamente al mayor número de preguntas\nen el menor tiempo posible, compitiendo contra otro jugador en tiempo real.\n\n",
+		},
+		&widget.TextSegment{
+			Style: widget.RichTextStyle{
+				TextStyle: fyne.TextStyle{Bold: true},
+			},
+			Text: "2. Inicio del Juego:\n",
+		},
+		&widget.TextSegment{
+			Text: "Cada jugador debe registrarse para poder acceder al juego. El juego comienza\ncuando se encuentra un rival dispuesto a jugar.\n\n",
+		},
+		&widget.TextSegment{
+			Style: widget.RichTextStyle{
+				TextStyle: fyne.TextStyle{Bold: true},
+			},
+			Text: "3. Desarrollo del Juego:\n",
+		},
+		&widget.TextSegment{
+			Text: "Cada ronda consta de una pregunta con cuatro opciones de respuesta: A, B, C y D.\nEl jugador tiene 20 segundos para seleccionar una respuesta.\nSi no se selecciona ninguna respuesta en el tiempo estipulado, se considera como incorrecta.\n\n",
+		},
+		&widget.TextSegment{
+			Style: widget.RichTextStyle{
+				TextStyle: fyne.TextStyle{Bold: true},
+			},
+			Text: "4. Sistema de Puntuación:\n",
+		},
+		&widget.TextSegment{
+			Text: "Cada respuesta correcta otorga un punto. No se restan puntos por respuestas incorrectas.\nEl primer jugador en llegar a los 10 puntos es declarado ganador.\n\n",
+		},
+		&widget.TextSegment{
+			Style: widget.RichTextStyle{
+				TextStyle: fyne.TextStyle{Bold: true},
+			},
+			Text: "5. Comunicación:\n",
+		},
+		&widget.TextSegment{
+			Text: "Los jugadores pueden comunicarse entre sí a través de un sistema de chat integrado en eljuego.\nSe espera que los jugadores mantengan un comportamiento\nrespetuoso y adecuado en el chat.\n\n",
+		},
+		&widget.TextSegment{
+			Style: widget.RichTextStyle{
+				TextStyle: fyne.TextStyle{Bold: true},
+			},
+			Text: "6. Conducta y Fair Play:\n",
+		},
+		&widget.TextSegment{
+			Text: "Está prohibido el uso de cualquier tipo de trampas o ayudas externas.\nLos jugadores deben respetar las decisiones del sistema de juego y de los moderadores.\n\n",
+		},
+		&widget.TextSegment{
+			Style: widget.RichTextStyle{
+				TextStyle: fyne.TextStyle{Bold: true},
+			},
+			Text: "7. Penalizaciones:\n",
+		},
+		&widget.TextSegment{
+			Text: "El incumplimiento de las normas de conducta puede llevar a sanciones como la suspensión\nde la cuenta o la expulsión definitiva del juego.\nEl uso de lenguaje inapropiado o comportamiento tóxico en el chat también será penalizado.\n\n",
+		},
+		&widget.TextSegment{
+			Style: widget.RichTextStyle{
+				TextStyle: fyne.TextStyle{Bold: true},
+			},
+			Text: "8. Ayuda y Soporte:\n",
+		},
+		&widget.TextSegment{
+			Text: "Para cualquier problema técnico o dudas sobre el juego, los jugadores pueden contactar\ncon el soporte técnico a través del correo \"preguntados_support@fi.uba.ar\".\n\n",
+		},
+		&widget.TextSegment{
+			Style: widget.RichTextStyle{
+				TextStyle: fyne.TextStyle{Bold: true},
+			},
+			Text: "9. Actualizaciones y Mantenimiento:\n",
+		},
+		&widget.TextSegment{
+			Text: "El juego puede estar sujeto a actualizaciones periódicas para mejorar la experiencia\ndel usuario. Durante los periodos de mantenimiento,\nalgunas funcionalidades del juego pueden no estar disponibles temporalmente.\n\n",
+		},
+		&widget.TextSegment{
+			Style: widget.RichTextStyle{
+				TextStyle: fyne.TextStyle{Bold: true},
+			},
+			Text: "10. Privacidad y Seguridad:\n",
+		},
+		&widget.TextSegment{
+			Text: "La información personal de los jugadores se maneja de acuerdo con las políticas de\nprivacidad establecidas en la plataforma.\nSe recomienda no compartir información personal sensible en el chat del juego.\n",
+		},
+	)
 
-	rulesLabel := widget.NewLabel(rulesText)
-	rulesContainer := container.NewVBox(rulesLabel)
+	backButtonContainer := container.NewHBox(backButton)
+
+	rulesContainer := container.NewVBox(rulesText)
 	rulesScroll := container.NewVScroll(rulesContainer)
 	rulesScroll.SetMinSize(fyne.NewSize(400, 300))
 
 	mainContainer := container.NewBorder(
-		container.NewBorder(nil, nil, backButton, nil, nil),
+		backButtonContainer,
+		nil,
+		nil,
+		nil,
 		rulesScroll,
-		nil,
-		nil,
-		nil,
 	)
 
 	rulesWindow.SetContent(mainContainer)
@@ -395,10 +472,6 @@ func (ui *UI) OpenChatWindow() {
 	chatWindow.Show()
 }
 
-func (ui *UI) updateCategoryLabel() {
-	ui.categoryLabel.SetText("Categoría: " + ui.category)
-}
-
 func (ui *UI) updateRivalLabel() {
 	if ui.rivalLabel != nil {
 		ui.rivalLabel.SetText("Rival: " + ui.rival)
@@ -411,9 +484,7 @@ func (ui *UI) OpenGameWindow() {
 	if ui.gameWindow != nil {
 		ui.gameWindow.Hide()
 	}
-	if ui.waitWindow != nil {
-		ui.waitWindow.Hide()
-	}
+	ui.timerEnabled = true
 
 	gameWindow := ui.myApp.NewWindow("Game")
 	ui.gameWindow = gameWindow
@@ -434,6 +505,10 @@ func (ui *UI) OpenGameWindow() {
 		ui.categoryLabel,
 	)
 
+	if ui.waitWindow != nil {
+		ui.waitWindow.Close()
+	}
+
 	done := make(chan bool)
 
 	go func() {
@@ -445,9 +520,12 @@ func (ui *UI) OpenGameWindow() {
 		for {
 			select {
 			case <-ticker.C:
+				if !ui.timerEnabled {
+					return
+				}
 				timer--
 				if timer <= 0 {
-					if !ui.gameOver {
+					if ui.timerEnabled {
 						ui.SendAnswer("INCORRECTO")
 						ui.ShowMessageWindow("Respuesta Incorrecta")
 					}
@@ -582,29 +660,27 @@ func (ui *UI) ShowPractiseMessageWindow(message string) {
 }
 
 func (ui *UI) handleServerMessage(message string) {
-	if ui.gameOver {
-		return
-	}
 
 	fmt.Println("Mensaje leído para el Handle: ", message)
 	if strings.HasPrefix(message, "READY:") {
+		time.Sleep(2 * time.Second)
 		res := strings.Split(strings.TrimPrefix(message, "READY:"), "\n")
 		fmt.Println("Partida VS: " + res[0])
 		ui.rival = res[0]
 		ui.updateRivalLabel()
 		if ui.waitWindow != nil {
-			ui.waitWindow.Hide()
+			ui.waitWindow.Close()
 			ui.OpenGameWindow()
 		}
 	} else if strings.HasPrefix(message, "CATEGORY:") {
 		res := strings.Split(strings.TrimPrefix(message, "CATEGORY:"), "\n")
 		fmt.Println("Categoria leida: " + res[0])
 		ui.category = res[0]
-		ui.updateCategoryLabel()
+		ui.categoryLabel.SetText("Categoría: " + ui.category)
 	} else if strings.HasPrefix(message, "QUESTION:") {
 		ui.options = ui.options[:0]
 		options := strings.Split(strings.TrimPrefix(message, "QUESTION:"), "\n")
-		ui.updateQuestion(options[0])
+		ui.questionLabel.SetText(strings.TrimPrefix(options[0], "QUESTION:"))
 	} else if strings.HasPrefix(message, "OPTION:") {
 		opt := strings.Split(strings.TrimPrefix(message, "OPTION:"), "\n")
 		fmt.Println("Opcion guardada: " + opt[0])
@@ -612,6 +688,12 @@ func (ui *UI) handleServerMessage(message string) {
 	} else if strings.TrimSpace(message) == "END_OPTION" {
 		ui.optionsLabel.SetText("")
 		ui.updateOptionLabel()
+	} else if strings.HasPrefix(message, "TOP_PLAYER:") {
+		opt := strings.Split(strings.TrimPrefix(message, "TOP_PLAYER:"), "\n")
+		fmt.Println("Top Player guardado: " + opt[0])
+		ui.top = append(ui.top, opt[0])
+	} else if strings.TrimSpace(message) == "END_STATS" {
+
 	} else if strings.TrimSpace(message) == "CORRECT" {
 		ui.ShowMessageWindow("Respuesta Correcta")
 	} else if strings.TrimSpace(message) == "INCORRECT" {
@@ -621,11 +703,11 @@ func (ui *UI) handleServerMessage(message string) {
 	} else if strings.TrimSpace(message) == "INCORRECT_PRACTISE" {
 		ui.ShowPractiseMessageWindow("Respuesta Incorrecta")
 	} else if strings.TrimSpace(message) == "WINNER" {
-		ui.gameOver = true
+		ui.timerEnabled = false
 		ui.closeWindows()
 		ui.ShowEndMessageWindow("¡Has ganado!")
 	} else if strings.TrimSpace(message) == "LOOSER" {
-		ui.gameOver = true
+		ui.timerEnabled = false
 		ui.closeWindows()
 		ui.ShowEndMessageWindow("¡Has perdido!")
 	} else {
@@ -652,8 +734,8 @@ func (ui *UI) ShowEndMessageWindow(message string) {
 	time.AfterFunc(3*time.Second, func() {
 		messageWindow.Close()
 		ui.incorrectShown = false
+		ui.timerEnabled = false
 		ui.OpenChooseWindow()
-		ui.gameOver = false // Reinicia el estado del juego para la próxima partida
 	})
 }
 
@@ -670,10 +752,6 @@ func (ui *UI) closeWindows() {
 
 func (ui *UI) updateChatMessage(message string) {
 	ui.messageDisplay.SetText(ui.messageDisplay.Text + message)
-}
-
-func (ui *UI) updateQuestion(question string) {
-	ui.questionLabel.SetText(strings.TrimPrefix(question, "QUESTION:"))
 }
 
 func (ui *UI) updateOptionLabel() {
