@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"strings"
 	"time"
+	"io/ioutil"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -36,51 +37,69 @@ type UI struct {
 	timerEnabled   bool
 }
 
+
+var (
+	cienciaBytes, _         = ioutil.ReadFile("Pics/ciencia.jpeg")
+	entretenimientoBytes, _ = ioutil.ReadFile("Pics/entretenimiento.jpeg")
+	deporteBytes, _         = ioutil.ReadFile("Pics/deportes.jpeg")
+	historiaBytes, _        = ioutil.ReadFile("Pics/historia.jpeg")
+
+	resourceCienciaJPEG         = fyne.NewStaticResource("Pics/ciencia.jpeg", cienciaBytes)
+	resourceEntretenimientoJPEG = fyne.NewStaticResource("Pics/entretenimiento.jpeg", entretenimientoBytes)
+	resourceDeporteJPEG         = fyne.NewStaticResource("Pics/deportes.jpeg", deporteBytes)
+	resourceHistoriaJPEG        = fyne.NewStaticResource("Pics/historia.jpeg", historiaBytes)
+)
+
 func NewUI(client *Client.Client, app fyne.App) *UI {
 	return &UI{client: client, myApp: app}
 }
 
 func (ui *UI) ShowLoginWindow() {
-	ui.loginWindow = ui.myApp.NewWindow("Login")
+    ui.loginWindow = ui.myApp.NewWindow("Login")
 
-	optionLabel := widget.NewLabel("Elige una opción:")
-	usernameEntry := widget.NewEntry()
-	usernameEntry.SetPlaceHolder("Username")
-	passwordEntry := widget.NewPasswordEntry()
-	passwordEntry.SetPlaceHolder("Password")
+    optionLabel := widget.NewLabel("Elige una opción:")
+    usernameEntry := widget.NewEntry()
+    usernameEntry.SetPlaceHolder("Nombre de usuario")
+    passwordEntry := widget.NewPasswordEntry()
+    passwordEntry.SetPlaceHolder("Contraseña")
 
-	loginButton := widget.NewButtonWithIcon("Login", theme.LoginIcon(), func() {
-		err := ui.client.SendCredentials("1", usernameEntry.Text, passwordEntry.Text)
-		if err == nil {
-			go ui.client.ReceiveMessages(ui.handleServerMessage)
-			ui.OpenChooseWindow()
-			ui.loginWindow.Hide()
-		} else {
-			fmt.Println("Login failed:", err)
-		}
-	})
+    loginButton := widget.NewButtonWithIcon("Iniciar sesión", theme.LoginIcon(), func() {
+        err := ui.client.SendCredentials("1", usernameEntry.Text, passwordEntry.Text)
+        if err == nil {
+            go ui.client.ReceiveMessages(ui.handleServerMessage)
+            ui.OpenChooseWindow()
+            ui.loginWindow.Hide()
+        } else {
+            fmt.Println("Error al iniciar sesión:", err)
+        }
+    })
 
-	registerButton := widget.NewButtonWithIcon("Register", theme.AccountIcon(), func() {
-		err := ui.client.SendCredentials("2", usernameEntry.Text, passwordEntry.Text)
-		if err == nil {
-			usernameEntry.SetText("")
-			passwordEntry.SetText("")
-		} else {
-			fmt.Println("Registration failed:", err)
-		}
-	})
+    registerButton := widget.NewButtonWithIcon("Registrarse", theme.AccountIcon(), func() {
+        err := ui.client.SendCredentials("2", usernameEntry.Text, passwordEntry.Text)
+        if err == nil {
+            usernameEntry.SetText("")
+            passwordEntry.SetText("")
+        } else {
+            fmt.Println("Error al registrarse:", err)
+        }
+    })
 
-	ui.loginWindow.SetContent(container.NewVBox(
-		optionLabel,
-		usernameEntry,
-		passwordEntry,
-		container.NewHBox(
-			loginButton,
-			registerButton,
-		),
-	))
-	ui.loginWindow.Resize(fyne.NewSize(400, 400))
-	ui.loginWindow.Show()
+    loginButton.Importance = widget.HighImportance
+
+    box := container.NewVBox(
+        optionLabel,
+        usernameEntry,
+        passwordEntry,
+        container.NewHBox(
+            loginButton,
+            registerButton,
+        ),
+    )
+
+    ui.loginWindow.SetContent(box)
+    ui.loginWindow.Resize(fyne.NewSize(400, 400))
+    ui.loginWindow.CenterOnScreen()
+    ui.loginWindow.Show()
 }
 
 func (ui *UI) OpenPractiseWindow() {
@@ -179,6 +198,29 @@ func (ui *UI) OpenPractiseWindow() {
 	)
 	ui.client.SendMessage("GET_QUESTION\n")
 
+	var backgroundImage fyne.Resource
+    switch ui.category {
+    case "Ciencia":
+        backgroundImage = resourceCienciaJPEG
+    case "Entretenimiento":
+        backgroundImage = resourceEntretenimientoJPEG
+    case "Deportes":
+        backgroundImage = resourceDeporteJPEG
+    case "Historia":
+        backgroundImage = resourceHistoriaJPEG
+    default:
+    }
+
+
+    if backgroundImage != nil {
+        bg := canvas.NewImageFromResource(backgroundImage)
+        bg.FillMode = canvas.ImageFillOriginal
+        ui.gameWindow.SetContent(container.NewMax(bg, newMainContainer))
+    } else {
+        ui.gameWindow.SetContent(newMainContainer)
+    }
+
+	
 	if ui.waitWindow != nil {
 		ui.waitWindow.Hide()
 	}
@@ -566,13 +608,31 @@ func (ui *UI) OpenGameWindow() {
 		mainContainer,
 	)
 
-	ui.client.SendMessage("GET_QUESTION\n")
+	var backgroundImage fyne.Resource
+	switch ui.category {
+	case "ciencia":
+		backgroundImage = resourceCienciaJPEG
+	case "entretenimiento":
+		backgroundImage = resourceEntretenimientoJPEG
+	case "deportes":
+		backgroundImage = resourceDeporteJPEG
+	case "historia":
+		backgroundImage = resourceHistoriaJPEG
+	default:
+	}
+
+	if backgroundImage != nil {
+		bg := canvas.NewImageFromResource(backgroundImage)
+		bg.FillMode = canvas.ImageFillOriginal
+		ui.gameWindow.SetContent(container.NewMax(bg, newMainContainer))
+	} else {
+		ui.gameWindow.SetContent(newMainContainer)
+	}
 
 	if ui.waitWindow != nil {
 		ui.waitWindow.Hide()
 	}
 
-	ui.gameWindow.SetContent(newMainContainer)
 	ui.gameWindow.Show()
 }
 
