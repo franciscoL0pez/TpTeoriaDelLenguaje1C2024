@@ -32,7 +32,7 @@ type questionAnswer struct {
 var (
 	clients            = make(map[net.Conn]*Client)
 	clientsWaitingPlay = make(map[net.Conn]*Client)
-	clientsPlaying     = make(map[int][]*Client) // Mapa de índice de partida a lista de jugadores
+	clientsPlaying     = make(map[int][]*Client)
 	currentAnswer      = make(map[net.Conn]string)
 	currentQuestion    = make(map[net.Conn]string)
 	questionDict       = make(map[string][]questionAnswer)
