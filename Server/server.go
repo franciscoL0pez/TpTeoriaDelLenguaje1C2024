@@ -117,6 +117,58 @@ func Register(username, password string) error {
 	return nil
 }
 
+func addWinToUser(username string) error {
+	file, err := os.OpenFile("Points/Winners.csv", os.O_RDWR|os.O_CREATE, os.ModePerm)
+	if err != nil {
+		fmt.Println("Error al abrir el archivo CSV:", err)
+		return err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		return err
+	}
+
+	userFound := false
+	for i, record := range records {
+		if record[0] == username {
+			points, err := strconv.Atoi(record[1])
+			if err != nil {
+				fmt.Println("Error to convert")
+				return err
+			}
+			points++
+			records[i][1] = strconv.Itoa(points)
+			userFound = true
+			break
+		}
+	}
+
+	if !userFound {
+		newRecord := []string{username, "1"}
+		records = append(records, newRecord)
+	}
+
+	file, err = os.Create("Points/Winners.csv")
+	if err != nil {
+		return err
+	}
+
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	err = writer.WriteAll(records)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
 func addPointsToUser(username string) error {
 	file, err := os.OpenFile("Points/puntos.csv", os.O_RDWR|os.O_CREATE, os.ModePerm)
 	if err != nil {
@@ -245,6 +297,10 @@ func HandleConnection(conn net.Conn) {
 		parts := strings.Fields(message)
 		if len(parts) > 0 {
 			switch parts[0] {
+			case "GIVE_STATS_MATCH":
+				mutex.Lock()
+				SendMatchStatsToClient(conn)
+				mutex.Unlock()
 			case "GIVE_STATS":
 				mutex.Lock()
 				SendStatsToClient(conn)
@@ -285,6 +341,7 @@ func HandleConnection(conn net.Conn) {
 						client.points++
 						addPointsToUser(client.username)
 						if client.points >= 2 {
+							addWinToUser(client.username)
 							endGame(client)
 						} else {
 							conn.Write([]byte("CORRECT\n"))
@@ -326,6 +383,48 @@ func endGame(winner *Client) {
 		}
 	}
 	delete(clientsPlaying, winner.indice)
+}
+
+func SendMatchStatsToClient(conn net.Conn) {
+	file, err := os.Open("Points/Winners.csv")
+	if err != nil {
+		fmt.Println("Error al abrir el archivo CSV:", err)
+		conn.Write([]byte("Error al obtener estadísticas.\n"))
+		return
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		fmt.Println("Error al leer el archivo CSV:", err)
+		conn.Write([]byte("Error al obtener estadísticas.\n"))
+		return
+	}
+
+	type Player struct {
+		Name   string
+		Points int
+	}
+
+	var players []Player
+	for _, record := range records {
+		points, err := strconv.Atoi(record[1])
+		if err != nil {
+			fmt.Println("Error al convertir puntos:", err)
+			continue
+		}
+		players = append(players, Player{Name: record[0], Points: points})
+	}
+
+	sort.Slice(players, func(i, j int) bool {
+		return players[i].Points > players[j].Points
+	})
+
+	for i := 0; i < 5 && i < len(players); i++ {
+		conn.Write([]byte(fmt.Sprintf("TOP_PLAYER_MATCH: Top %d: %s - %d\n", i+1, players[i].Name, players[i].Points)))
+	}
+	conn.Write([]byte("END_STATS_MATCH\n"))
 }
 
 func SendStatsToClient(conn net.Conn) {

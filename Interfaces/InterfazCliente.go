@@ -303,7 +303,12 @@ func (ui *UI) OpenChooseWindow() {
 			chooseWindow.Hide()
 			ui.OpenRulesWindow(chooseWindow)
 		}),
-		widget.NewButtonWithIcon("Estadisticas", theme.StorageIcon(), func() {
+		widget.NewButtonWithIcon("Top jugadores con más partidas ganadas", theme.StorageIcon(), func() {
+			ui.client.SendMessage("GIVE_STATS_MATCH\n")
+			chooseWindow.Hide()
+			ui.OpenStatsWindow()
+		}),
+		widget.NewButtonWithIcon("Top jugadores con más respuestas correctas", theme.StorageIcon(), func() {
 			ui.client.SendMessage("GIVE_STATS\n")
 			chooseWindow.Hide()
 			ui.OpenStatsWindow()
@@ -662,6 +667,7 @@ func (ui *UI) ShowPractiseMessageWindow(message string) {
 func (ui *UI) handleServerMessage(message string) {
 
 	fmt.Println("Mensaje leído para el Handle: ", message)
+	msgTrimSpace := strings.TrimSpace(message)
 	if strings.HasPrefix(message, "READY:") {
 		time.Sleep(2 * time.Second)
 		res := strings.Split(strings.TrimPrefix(message, "READY:"), "\n")
@@ -685,24 +691,28 @@ func (ui *UI) handleServerMessage(message string) {
 		opt := strings.Split(strings.TrimPrefix(message, "OPTION:"), "\n")
 		fmt.Println("Opcion guardada: " + opt[0])
 		ui.options = append(ui.options, opt[0])
-	} else if strings.TrimSpace(message) == "END_OPTION" {
+	} else if msgTrimSpace == "END_OPTION" {
 		ui.optionsLabel.SetText("")
 		ui.updateOptionLabel()
 	} else if strings.HasPrefix(message, "TOP_PLAYER:") {
 		opt := strings.Split(strings.TrimPrefix(message, "TOP_PLAYER:"), "\n")
 		fmt.Println("Top Player guardado: " + opt[0])
 		ui.top = append(ui.top, opt[0])
-	} else if strings.TrimSpace(message) == "END_STATS" {
+	} else if strings.HasPrefix(message, "TOP_PLAYER_MATCH:") {
+		opt := strings.Split(strings.TrimPrefix(message, "TOP_PLAYER_MATCH:"), "\n")
+		fmt.Println("Top Winns guardado: " + opt[0])
+		ui.top = append(ui.top, opt[0])
+	} else if msgTrimSpace == "END_STATS" || msgTrimSpace == "END_STATS_MATCH" {
 
-	} else if strings.TrimSpace(message) == "CORRECT" {
+	} else if msgTrimSpace == "CORRECT" {
 		ui.ShowMessageWindow("Respuesta Correcta")
-	} else if strings.TrimSpace(message) == "INCORRECT" {
+	} else if msgTrimSpace == "INCORRECT" {
 		ui.ShowMessageWindow("Respuesta Incorrecta")
-	} else if strings.TrimSpace(message) == "CORRECT_PRACTISE" {
+	} else if msgTrimSpace == "CORRECT_PRACTISE" {
 		ui.ShowPractiseMessageWindow("Respuesta Correcta")
-	} else if strings.TrimSpace(message) == "INCORRECT_PRACTISE" {
+	} else if msgTrimSpace == "INCORRECT_PRACTISE" {
 		ui.ShowPractiseMessageWindow("Respuesta Incorrecta")
-	} else if strings.TrimSpace(message) == "WINNER" {
+	} else if msgTrimSpace == "WINNER" {
 		ui.timerEnabled = false
 		ui.closeWindows()
 		ui.ShowEndMessageWindow("¡Has ganado!")
