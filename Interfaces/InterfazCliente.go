@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"strings"
 	"time"
-	"io/ioutil"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -18,6 +17,7 @@ import (
 )
 
 type UI struct {
+	image		   *canvas.Image
 	client         *Client.Client
 	myApp          fyne.App
 	loginWindow    fyne.Window
@@ -35,23 +35,16 @@ type UI struct {
 	category       string
 	rival          string
 	timerEnabled   bool
+	//file 		   string
 }
 
 
 var (
-	cienciaBytes, _         = ioutil.ReadFile("Pics/ciencia.jpeg")
-	entretenimientoBytes, _ = ioutil.ReadFile("Pics/entretenimiento.jpeg")
-	deporteBytes, _         = ioutil.ReadFile("Pics/deportes.jpeg")
-	historiaBytes, _        = ioutil.ReadFile("Pics/historia.jpeg")
-
-	resourceCienciaJPEG         = fyne.NewStaticResource("Pics/ciencia.jpeg", cienciaBytes)
-	resourceEntretenimientoJPEG = fyne.NewStaticResource("Pics/entretenimiento.jpeg", entretenimientoBytes)
-	resourceDeporteJPEG         = fyne.NewStaticResource("Pics/deportes.jpeg", deporteBytes)
-	resourceHistoriaJPEG        = fyne.NewStaticResource("Pics/historia.jpeg", historiaBytes)
+	file string
 )
 
 func NewUI(client *Client.Client, app fyne.App) *UI {
-	return &UI{client: client, myApp: app}
+	return &UI{client: client, myApp: app, image: canvas.NewImageFromFile(file)}
 }
 
 func (ui *UI) ShowLoginWindow() {
@@ -103,6 +96,8 @@ func (ui *UI) ShowLoginWindow() {
 }
 
 func (ui *UI) OpenPractiseWindow() {
+	ui.client.SendMessage("GET_QUESTION\n")
+	
 	if ui.gameWindow != nil {
 		ui.gameWindow.Hide()
 	}
@@ -185,8 +180,9 @@ func (ui *UI) OpenPractiseWindow() {
 		buttons[0], buttons[1],
 		buttons[2], buttons[3],
 	)
-
+	
 	mainContainer := container.NewVBox(
+		ui.image,
 		ui.questionLabel,
 		ui.optionsLabel,
 		buttonGrid,
@@ -196,31 +192,8 @@ func (ui *UI) OpenPractiseWindow() {
 		topContainer,
 		mainContainer,
 	)
-	ui.client.SendMessage("GET_QUESTION\n")
-
-	var backgroundImage fyne.Resource
-    switch ui.category {
-    case "Ciencia":
-        backgroundImage = resourceCienciaJPEG
-    case "Entretenimiento":
-        backgroundImage = resourceEntretenimientoJPEG
-    case "Deportes":
-        backgroundImage = resourceDeporteJPEG
-    case "Historia":
-        backgroundImage = resourceHistoriaJPEG
-    default:
-    }
-
-
-    if backgroundImage != nil {
-        bg := canvas.NewImageFromResource(backgroundImage)
-        bg.FillMode = canvas.ImageFillOriginal
-        ui.gameWindow.SetContent(container.NewMax(bg, newMainContainer))
-    } else {
-        ui.gameWindow.SetContent(newMainContainer)
-    }
-
 	
+
 	if ui.waitWindow != nil {
 		ui.waitWindow.Hide()
 	}
@@ -333,9 +306,12 @@ func (ui *UI) OpenChooseWindow() {
 			ui.OpenWaitingWindow()
 			chooseWindow.Hide()
 		}),
-		widget.NewButtonWithIcon("Practicar", theme.InfoIcon(), func() {
+		widget.NewButtonWithIcon("Practicar", theme.InfoIcon(), func() {	
+			ui.questionLabel = widget.NewLabel("")
+			ui.messageDisplay = widget.NewLabel("")
+			ui.optionsLabel = widget.NewLabel("")
+			ui.client.SendMessage("WANT_PRACTISE\n")
 			chooseWindow.Hide()
-			ui.OpenPractiseWindow()
 		}),
 		widget.NewButtonWithIcon("Chat", theme.MailComposeIcon(), func() {
 			ui.OpenChatWindow()
@@ -608,26 +584,7 @@ func (ui *UI) OpenGameWindow() {
 		mainContainer,
 	)
 
-	var backgroundImage fyne.Resource
-	switch ui.category {
-	case "ciencia":
-		backgroundImage = resourceCienciaJPEG
-	case "entretenimiento":
-		backgroundImage = resourceEntretenimientoJPEG
-	case "deportes":
-		backgroundImage = resourceDeporteJPEG
-	case "historia":
-		backgroundImage = resourceHistoriaJPEG
-	default:
-	}
-
-	if backgroundImage != nil {
-		bg := canvas.NewImageFromResource(backgroundImage)
-		bg.FillMode = canvas.ImageFillOriginal
-		ui.gameWindow.SetContent(container.NewMax(bg, newMainContainer))
-	} else {
-		ui.gameWindow.SetContent(newMainContainer)
-	}
+	ui.gameWindow.SetContent(newMainContainer)
 
 	if ui.waitWindow != nil {
 		ui.waitWindow.Hide()
@@ -735,8 +692,30 @@ func (ui *UI) handleServerMessage(message string) {
 	} else if strings.HasPrefix(message, "CATEGORY:") {
 		res := strings.Split(strings.TrimPrefix(message, "CATEGORY:"), "\n")
 		fmt.Println("Categoria leida: " + res[0])
+		fmt.Print("categ")
 		ui.category = res[0]
 		ui.categoryLabel.SetText("Categoría: " + ui.category)
+		fmt.Println(res[0]) 
+		fmt.Print("zinedine zenon")
+		fmt.Print("zinedine zenon")
+		switch res[0] {
+		case "Ciencia":
+			fmt.Println("seteo science")
+			file = "Pics/ciencia.jpeg"
+		case "Entretenimiento":
+			fmt.Println("seteo entre")
+			file = "Pics/entretenimiento.jpeg"
+		case "Deportes":
+			fmt.Println("seteo depor")
+			file = "Pics/deportes.jpeg"
+		case "Historia":
+			fmt.Println("seteo historia")
+			file = "Pics/historia.jpeg"
+		default:
+			fmt.Print("defol")
+		}
+	}else if strings.TrimSpace(message) == "READY_PRACTISE"{
+		ui.OpenPractiseWindow()
 	} else if strings.HasPrefix(message, "QUESTION:") {
 		ui.options = ui.options[:0]
 		options := strings.Split(strings.TrimPrefix(message, "QUESTION:"), "\n")

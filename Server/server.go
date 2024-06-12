@@ -249,6 +249,11 @@ func HandleConnection(conn net.Conn) {
 				mutex.Lock()
 				SendStatsToClient(conn)
 				mutex.Unlock()
+			case "WANT_PRACTISE":
+				mutex.Lock()
+				SendQuestionToClient(conn)
+				conn.Write([]byte("READY_PRACTISE\n"))
+				mutex.Unlock()
 			case "NOT_WANT_PLAY":
 				mutex.Lock()
 				delete(clientsWaitingPlay, conn)
@@ -265,6 +270,7 @@ func HandleConnection(conn net.Conn) {
 				answer := strings.Join(parts[1:], " ")
 				fmt.Println("Respuesta recibida:", answer)
 				mutex.Lock()
+				SendQuestionToClient(conn)
 				if CheckAnswer(answer, conn) {
 					fmt.Println("Respuesta Correcta")
 					conn.Write([]byte("CORRECT_PRACTISE\n"))
@@ -272,7 +278,6 @@ func HandleConnection(conn net.Conn) {
 					fmt.Println("Respuesta Incorrecta")
 					conn.Write([]byte("INCORRECT_PRACTISE\n"))
 				}
-				SendQuestionToClient(conn)
 				mutex.Unlock()
 			case "ANSWER":
 				if len(parts) >= 2 {
