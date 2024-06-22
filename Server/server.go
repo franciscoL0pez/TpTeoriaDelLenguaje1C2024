@@ -330,6 +330,17 @@ func HandleConnection(conn net.Conn) {
 				}
 				SendQuestionToClient(conn)
 				mutex.Unlock()
+
+			case "RENDIRSE":
+				mutex.Lock()
+				surrender(clients[conn])
+				mutex.Unlock()
+
+			case "EXIT":
+				mutex.Lock()
+				delete(clients, conn)
+				mutex.Unlock()
+
 			case "ANSWER":
 				if len(parts) >= 2 {
 					answer := strings.Join(parts[1:], " ")
@@ -383,6 +394,21 @@ func endGame(winner *Client) {
 		}
 	}
 	delete(clientsPlaying, winner.indice)
+}
+
+func surrender(looser *Client) {
+	players := clientsPlaying[looser.indice]
+	for _, player := range players {
+		player.points = 0
+		if player == looser {
+			player.conn.Write([]byte("LOOSER\n"))
+
+		} else {
+			addWinToUser(player.username)
+			player.conn.Write([]byte("WINNER\n"))
+		}
+	}
+	delete(clientsPlaying, looser.indice)
 }
 
 func SendMatchStatsToClient(conn net.Conn) {

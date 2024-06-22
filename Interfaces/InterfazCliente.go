@@ -313,6 +313,12 @@ func (ui *UI) OpenChooseWindow() {
 			chooseWindow.Hide()
 			ui.OpenStatsWindow()
 		}),
+
+		widget.NewButtonWithIcon("Salir", theme.LogoutIcon(), func() {
+			ui.client.SendMessage("EXIT\n")
+			chooseWindow.Close()
+
+		}),
 	))
 	chooseWindow.Resize(fyne.NewSize(400, 400))
 	chooseWindow.Show()
@@ -559,6 +565,13 @@ func (ui *UI) OpenGameWindow() {
 		buttons[2], buttons[3],
 	)
 
+	backButton := widget.NewButtonWithIcon("Rendirse", theme.ContentUndoIcon(), func() {
+
+		ui.client.SendMessage("RENDIRSE\n")
+		ui.timerEnabled = false
+		ui.gameWindow.Close()
+	})
+
 	mainContainer := container.NewVBox(
 		ui.questionLabel,
 		ui.optionsLabel,
@@ -567,6 +580,7 @@ func (ui *UI) OpenGameWindow() {
 	)
 
 	newMainContainer := container.NewVBox(
+		backButton,
 		timerContainer,
 		mainContainer,
 	)
@@ -579,6 +593,7 @@ func (ui *UI) OpenGameWindow() {
 
 	ui.gameWindow.SetContent(newMainContainer)
 	ui.gameWindow.Show()
+
 }
 
 func (ui *UI) SendAnswer(text string) {
@@ -619,8 +634,15 @@ func (ui *UI) ShowMessageWindow(message string) {
 	messageWindow := ui.myApp.NewWindow("Mensaje")
 	messageLabel := widget.NewLabel(message)
 
+	backButton := widget.NewButtonWithIcon("", theme.ContentUndoIcon(), func() {
+		messageWindow.Close()
+		ui.incorrectShown = false
+		ui.OpenGameWindow()
+	})
+
 	messageWindow.SetContent(container.NewVBox(
 		messageLabel,
+		backButton,
 	))
 
 	if ui.gameWindow != nil {
@@ -630,11 +652,6 @@ func (ui *UI) ShowMessageWindow(message string) {
 	messageWindow.Resize(fyne.NewSize(400, 400))
 	messageWindow.Show()
 
-	time.AfterFunc(3*time.Second, func() {
-		messageWindow.Close()
-		ui.incorrectShown = false
-		ui.OpenGameWindow()
-	})
 }
 
 func (ui *UI) ShowPractiseMessageWindow(message string) {
@@ -646,8 +663,15 @@ func (ui *UI) ShowPractiseMessageWindow(message string) {
 	messageWindow := ui.myApp.NewWindow("Mensaje")
 	messageLabel := widget.NewLabel(message)
 
+	backButton := widget.NewButtonWithIcon("", theme.ContentUndoIcon(), func() {
+		messageWindow.Close()
+		ui.incorrectShown = false
+		ui.OpenPractiseWindow()
+	})
+
 	messageWindow.SetContent(container.NewVBox(
 		messageLabel,
+		backButton,
 	))
 
 	if ui.gameWindow != nil {
@@ -657,11 +681,6 @@ func (ui *UI) ShowPractiseMessageWindow(message string) {
 	messageWindow.Resize(fyne.NewSize(400, 400))
 	messageWindow.Show()
 
-	time.AfterFunc(3*time.Second, func() {
-		messageWindow.Close()
-		ui.incorrectShown = false
-		ui.OpenPractiseWindow()
-	})
 }
 
 func (ui *UI) handleServerMessage(message string) {
@@ -734,19 +753,21 @@ func (ui *UI) ShowEndMessageWindow(message string) {
 	messageWindow := ui.myApp.NewWindow("Fin de partida")
 	messageLabel := widget.NewLabel(message)
 
+	backButton := widget.NewButtonWithIcon("", theme.ContentUndoIcon(), func() {
+		messageWindow.Close()
+		ui.incorrectShown = false
+		ui.timerEnabled = false
+		ui.OpenChooseWindow()
+	})
+
 	messageWindow.SetContent(container.NewVBox(
+		backButton,
 		messageLabel,
 	))
 
 	messageWindow.Resize(fyne.NewSize(400, 400))
 	messageWindow.Show()
 
-	time.AfterFunc(3*time.Second, func() {
-		messageWindow.Close()
-		ui.incorrectShown = false
-		ui.timerEnabled = false
-		ui.OpenChooseWindow()
-	})
 }
 
 func (ui *UI) closeWindows() {
